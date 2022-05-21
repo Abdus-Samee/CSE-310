@@ -11,6 +11,7 @@ class ScopeTable{
     public:
         ScopeTable* parentScope;
         ScopeTable(int total_buckets);
+        ~ScopeTable();
         bool insert(string name, string type);
         SymbolInfo* lookup(string name);
         bool deleteEntry(string name);
@@ -106,4 +107,19 @@ int ScopeTable::sdbmHash(string name){
         hash = name[i] + (hash << 6) + (hash << 16) - hash;
     }
     return hash % total_buckets;
+}
+
+ScopeTable::~ScopeTable(){
+    for(int i = 0; i < total_buckets; i++){
+        if(ptr[i] != NULL){
+            SymbolInfo* temp = ptr[i];
+            while(temp != NULL){
+                SymbolInfo* temp2 = temp;
+                temp = temp->next;
+                delete temp2;
+            }
+        }
+    }
+    
+    delete[] ptr;
 }
