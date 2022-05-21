@@ -8,6 +8,7 @@ class SymbolTable{
         ScopeTable* curr;
         stack<ScopeTable*> scopeStack;
     public:
+        SymbolTable();
         SymbolTable(int total_buckets);
         void enterScope();
         void exitScope();
@@ -18,20 +19,31 @@ class SymbolTable{
         void printAllScopeTables();
 };
 
+SymbolTable::SymbolTable(){}
+
 SymbolTable::SymbolTable(int total_buckets){
     this->total_buckets = total_buckets;
+    this->curr = new ScopeTable(this->total_buckets);
+    this->scopeStack.push(this->curr);
 }
 
 void SymbolTable::enterScope(){
     ScopeTable* newScope = new ScopeTable(this->total_buckets);
     this->scopeStack.push(newScope);
-    newScope->parentScope = this->curr;
+    newScope->setParentScope(this->curr);
     this->curr = newScope;
+
+    cout << "New ScopeTable with id " << this->curr->getId() << " created" << endl;
 }
 
 void SymbolTable::exitScope(){
+    ScopeTable* deletedTable = this->scopeStack.top();
     this->scopeStack.pop();
     this->curr = this->scopeStack.top();
+    this->curr->setDeletedId(this->curr->getDeletedId() + 1);
+
+    cout << "ScopeTable with id " << deletedTable->getId() << " removed" << endl;
+    delete deletedTable;
 }
 
 bool SymbolTable::insert(string name, string type){
@@ -46,8 +58,8 @@ SymbolInfo* SymbolTable::lookup(string name){
     while(true){
         SymbolInfo* temp = this->curr->lookup(name);
         if(temp != NULL) return temp;
-        if(this->curr->parentScope == NULL) return NULL;
-        this->curr = this->curr->parentScope;
+        if(this->curr->getParentScope() == NULL) return NULL;
+        this->curr = this->curr->getParentScope();
     }
 }
 
