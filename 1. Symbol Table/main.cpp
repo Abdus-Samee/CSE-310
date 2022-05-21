@@ -8,31 +8,54 @@ using namespace std;
 
 vector<string> splitInput(string str){
     vector<string> ans;
-    string delimiter = " ";
-    size_t pos = 0;
-    string token;
-    while ((pos = str.find(delimiter)) != string::npos) {
-        token = str.substr(0, pos);
+    char* token = strtok((char*)str.c_str(), " ");
+    while(token){
         ans.push_back(token);
-        str.erase(0, pos + delimiter.length());
+        token = strtok(NULL, " ");
     }
 
     return ans;
 }
 
 int main(){
+    int c = 0;
     string str;
     ifstream input("input.txt");
+    SymbolTable symbolTable;
 
     if(input.is_open()){
         while(input){
             getline(input, str);
 
-            vector<string> res = splitInput(str);
-            for(int i = 0; i < res.size(); i++){
-                cout << res[i] << " ";
+            if(c == 0){
+                int bucket_no = stoi(str);
+                cout << bucket_no << endl;
+                symbolTable = SymbolTable(bucket_no);
+                c++;
+            }else{
+                vector<string> res = splitInput(str);
+
+                if(res[0] == "I"){
+                    string name = res[1];
+                    string type = res[2];
+                    symbolTable.insert(name, type);
+                }else if(res[0] == "L"){
+                    string name = res[1];
+                    SymbolInfo* info = symbolTable.lookup(name);
+                }else if(res[0] == "D"){
+                    string name = res[1];
+                    symbolTable.remove(name);
+                }else if(res[0] == "P"){
+                    if(res[1] == "A") symbolTable.printAllScopeTables();
+                    else if(res[1] == "C") symbolTable.printCurrentScopeTable();
+                    else cout << "Incorrect format of input" << endl;
+                }else if(res[0] == "S"){
+                    symbolTable.enterScope();
+                }else if(res[0] == "E"){
+                    symbolTable.exitScope();
+                }else cout << "Incorrect format of input..." << endl;
             }
-            cout << endl;
+
         }
     }else cout << "Error opening file...";
 
