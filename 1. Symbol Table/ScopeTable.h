@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <cstring>
+#include <fstream>
 #include "SymbolInfo.h"
 
 using namespace std;
@@ -49,7 +50,6 @@ bool ScopeTable::insert(string name, string type){
         res = 1;
     }else{
         SymbolInfo* temp = ptr[hash_value];
-        cout << temp->getName() << endl;
         while(temp->next != NULL){
             if(temp->getName() == name){
                 res = -1;
@@ -60,35 +60,73 @@ bool ScopeTable::insert(string name, string type){
         }
 
         if(res == 0){
-            temp->next = new SymbolInfo(name, type);
-            count++;
-            res = true;
-            cout << "Inserted in place "<< count<< endl;
+            if(temp->getName() == name){
+                res = -1;
+            }else{
+                temp->next = new SymbolInfo(name, type);
+                count++;
+                res = 1;
+            }
         }
     }
 
+    string output = "";
     if(res == 1){
-        cout << "Inserted in ScopeTable# " << getId() << " at position " << hash_value << ", " << count <<  endl;
-    }else cout << "<" << name << "," << type << "> already exists in current ScopeTable" << endl;
+        output = "Inserted in ScopeTable# " + getId() + " at position " + to_string(hash_value) + ", " + to_string(count);
+        cout << output << endl;
+        //cout << "Inserted in ScopeTable# " << getId() << " at position " << hash_value << ", " << count <<  endl;
+    }else{
+        output = "<" + name + "," + type + "> already exists in current ScopeTable";
+        cout << output << endl;
+        //cout << "<" << name << "," << type << "> already exists in current ScopeTable" << endl;
+    }
+
+    fstream outputFile;
+    outputFile.open("output.txt", ios::out | ios::app);
+    outputFile << output << endl;
+    outputFile.close();
 
     return res;
 }
 
 SymbolInfo* ScopeTable::lookup(string name){
+    fstream outputFile;
+    outputFile.open("output.txt", ios::out | ios::app);
     int hash_value = sdbmHash(name);
+    SymbolInfo* res = NULL;
+    string output = "";
 
-    if(ptr[hash_value] == NULL) return NULL;
+    if(ptr[hash_value] == NULL){
+        res = NULL;
+    }
     else{
+        int count = 0;
+        int found = 0;
         SymbolInfo* temp = ptr[hash_value];
         while(temp->next != NULL){
-            if(temp->getName() == name) return temp;
+            if(temp->getName() == name){
+                res = temp;
+                output = "Found in ScopeTable# " + getId() + " at position " + to_string(hash_value) + ", " + to_string(count);
+                cout << output << endl;
+                outputFile << output << endl;
+                found = 1;
+                break;
+            }
             temp = temp->next;
+            count++;
         }
 
-        if(temp->getName() == name) return temp;
-
-        return NULL;
+        if((found==0) && temp->getName() == name){
+            res = temp;
+            output = "Found in ScopeTable# " + getId() + " at position " + to_string(hash_value) + ", " + to_string(count);
+            cout << output << endl;
+            outputFile << output << endl;
+        }
     }
+
+    outputFile.close();
+
+    return res;
 }
 
 bool ScopeTable::deleteEntry(string name){
@@ -96,7 +134,7 @@ bool ScopeTable::deleteEntry(string name){
     int count = 0;
     int hash_value = sdbmHash(name);
 
-    if(ptr[hash_value] == NULL) return false;
+    if(ptr[hash_value] == NULL) res = false;
     else{
         SymbolInfo* temp = ptr[hash_value];
 
@@ -119,28 +157,50 @@ bool ScopeTable::deleteEntry(string name){
         }
     }
 
+    string output = "";
     if(res){
-        cout << "Found in ScopeTable# " << getId() << " at position " << hash_value << ", " << count << endl;
-        cout << "Deleted entry " << hash_value << ", " << count << " from current ScopeTable" << endl;
-    }else cout << "Not found\n" << name << " not found\n";
+        output = "Found in ScopeTable# " + getId() + " at position " + to_string(hash_value) + ", " + to_string(count) + "\n";
+        output += "Deleted entry " + to_string(hash_value) + ", " + to_string(count) + " from current ScopeTable";
+        cout << output << endl;
+    }else{
+        output = "Not found\n" + name + " not found";
+        cout << output << endl;
+    }
+
+    fstream outputFile;
+    outputFile.open("output.txt", ios::out | ios::app);
+    outputFile << output << endl;
+    outputFile.close();
 
     return res;
 }
 
 void ScopeTable::print(){
+    fstream outputFile;
+    outputFile.open("output.txt", ios::out | ios::app);
+
     cout << "Scope Table # " << getId() << endl;
+    outputFile << "Scope Table # " << getId() << endl;
 
     for(int i = 0; i < total_buckets; i++){
         if(ptr[i] != NULL){
             SymbolInfo* temp = ptr[i];
             cout << i << " --> ";
+            outputFile << i << " --> ";
             while(temp != NULL){
                 cout << "< " << temp->getName() << " : " << temp->getType() << " >  ";
+                outputFile << "< " << temp->getName() << " : " << temp->getType() << " >  ";
                 temp = temp->next;
             }
             cout << "\n";
-        }else cout << i << " -->\n";
+            outputFile << "\n";
+        }else{
+            cout << i << " -->\n";
+            outputFile << i << " -->\n";
+        }
     }
+
+    outputFile.close();
 }
 
 int ScopeTable::sdbmHash(string name){
