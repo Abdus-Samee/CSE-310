@@ -7,7 +7,7 @@ using namespace std;
 
 class ScopeTable{
         int total_buckets;
-        int parent_id;
+        string parent_id;
         int current_id;
         int deleted_id;
         ScopeTable* parentScope;
@@ -30,7 +30,7 @@ class ScopeTable{
 ScopeTable::ScopeTable(int total_buckets){
     this->total_buckets = total_buckets;
     parentScope = NULL;
-    this->parent_id = 0;
+    this->parent_id = "0";
     this->current_id = 1;
     this->deleted_id = 0;
     this->ptr = new SymbolInfo*[total_buckets];
@@ -152,8 +152,8 @@ int ScopeTable::sdbmHash(string name){
 }
 
 string ScopeTable::getId(){
-    if(this->parent_id == 0) return to_string(this->current_id);
-    else return to_string(this->parent_id) + "." + to_string(this->current_id);
+    if(this->parent_id == "0") return to_string(this->current_id);
+    else return this->parent_id + "." + to_string(this->current_id);
 }
 
 void ScopeTable::setDeletedId(int id){
@@ -166,7 +166,7 @@ int ScopeTable::getDeletedId(){
 
 void ScopeTable::setParentScope(ScopeTable* parent){
     this->parentScope = parent;
-    this->parent_id = parent->current_id;
+    this->parent_id = parent->getId();
     this->current_id += parent->deleted_id;
 }
 
