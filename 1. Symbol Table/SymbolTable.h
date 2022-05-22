@@ -1,4 +1,5 @@
 #include <stack>
+#include <fstream>
 #include "ScopeTable.h"
 
 using namespace std;
@@ -34,6 +35,11 @@ void SymbolTable::enterScope(){
     this->curr = newScope;
 
     cout << "New ScopeTable with id " << this->curr->getId() << " created" << endl;
+
+    fstream outputFile;
+    outputFile.open("output.txt", ios::out | ios::app);
+    outputFile << "New ScopeTable with id " << this->curr->getId() << " created" << endl;
+    outputFile.close();
 }
 
 void SymbolTable::exitScope(){
@@ -43,6 +49,12 @@ void SymbolTable::exitScope(){
     this->curr->setDeletedId(this->curr->getDeletedId() + 1);
 
     cout << "ScopeTable with id " << deletedTable->getId() << " removed" << endl;
+
+    fstream outputFile;
+    outputFile.open("output.txt", ios::out | ios::app);
+    outputFile << "ScopeTable with id " << deletedTable->getId() << " removed" << endl;
+    outputFile.close();
+
     delete deletedTable;
 }
 
@@ -55,12 +67,30 @@ bool SymbolTable::remove(string name){
 }
 
 SymbolInfo* SymbolTable::lookup(string name){
+    SymbolInfo* res = NULL;
     while(true){
         SymbolInfo* temp = this->curr->lookup(name);
-        if(temp != NULL) return temp;
-        if(this->curr->getParentScope() == NULL) return NULL;
+        if(temp != NULL){
+            res = temp;
+            break;
+        }
+        if(this->curr->getParentScope() == NULL){
+            res = NULL;
+            break;
+        }
         this->curr = this->curr->getParentScope();
     }
+
+    if(res == NULL){
+        cout << "Not found\n";
+
+        fstream outputFile;
+        outputFile.open("output.txt", ios::out | ios::app);
+        outputFile << "Not found" << endl;
+        outputFile.close();
+    }
+
+    return res;
 }
 
 void SymbolTable::printCurrentScopeTable(){
