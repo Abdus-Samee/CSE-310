@@ -21,7 +21,7 @@ int main(){
     int c = 0;
     string str;
     ifstream input("1805021_input.txt");
-    SymbolTable symbolTable;
+    SymbolTable* symbolTable;
 
     if(input.is_open()){
         while(input){
@@ -29,7 +29,7 @@ int main(){
                 if(c == 0){
                     int bucket_no = stoi(str);
                     cout << bucket_no << endl;
-                    symbolTable = SymbolTable(bucket_no);
+                    symbolTable = new SymbolTable(bucket_no);
                     c++;
                 }else{
                     fstream outputFile;
@@ -42,21 +42,21 @@ int main(){
                     if(res[0] == "I"){
                         string name = res[1];
                         string type = res[2];
-                        symbolTable.insert(name, type);
+                        symbolTable->insert(name, type);
                     }else if(res[0] == "L"){
                         string name = res[1];
-                        SymbolInfo* info = symbolTable.lookup(name);
+                        SymbolInfo* info = symbolTable->lookup(name);
                     }else if(res[0] == "D"){
                         string name = res[1];
-                        symbolTable.remove(name);
+                        symbolTable->remove(name);
                     }else if(res[0] == "P"){
-                        if(res[1] == "A") symbolTable.printAllScopeTables();
-                        else if(res[1] == "C") symbolTable.printCurrentScopeTable();
+                        if(res[1] == "A") symbolTable->printAllScopeTables();
+                        else if(res[1] == "C") symbolTable->printCurrentScopeTable();
                         else cout << "Incorrect format of input" << endl;
                     }else if(res[0] == "S"){
-                        symbolTable.enterScope();
+                        symbolTable->enterScope();
                     }else if(res[0] == "E"){
-                        symbolTable.exitScope();
+                        symbolTable->exitScope();
                     }else cout << "Incorrect format of input..." << endl;
 
                     c++;
@@ -64,6 +64,8 @@ int main(){
             }
         }
     }else cout << "Error opening file...";
+
+    delete symbolTable;
 
     return 0;
 }
