@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 #include <fstream>
-#include "SymbolTable.h"
+#include "1805021_SymbolTable.h"
 
 using namespace std;
 
@@ -20,7 +20,7 @@ vector<string> splitInput(string str){
 int main(){
     int c = 0;
     string str;
-    ifstream input("input.txt");
+    ifstream input("1805021_input.txt");
     SymbolTable symbolTable;
 
     if(input.is_open()){
@@ -33,7 +33,7 @@ int main(){
                     c++;
                 }else{
                     fstream outputFile;
-                    outputFile.open("output.txt", ios::out | ios::app);
+                    outputFile.open("1805021_output.txt", ios::out | ios::app);
                     outputFile << str << endl;
                     outputFile.close();
 
