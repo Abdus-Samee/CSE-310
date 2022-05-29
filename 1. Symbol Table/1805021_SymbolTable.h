@@ -11,6 +11,7 @@ class SymbolTable{
     public:
         SymbolTable();
         SymbolTable(int total_buckets);
+        ~SymbolTable();
         void enterScope();
         void exitScope();
         bool insert(string name, string type);
@@ -20,12 +21,22 @@ class SymbolTable{
         void printAllScopeTables();
 };
 
-SymbolTable::SymbolTable(){}
+SymbolTable::SymbolTable(){
+    this->curr = NULL;
+}
 
 SymbolTable::SymbolTable(int total_buckets){
     this->total_buckets = total_buckets;
     this->curr = new ScopeTable(this->total_buckets);
     this->scopeStack.push(this->curr);
+}
+
+SymbolTable::~SymbolTable(){
+    while(!this->scopeStack.empty()){
+        ScopeTable* temp = this->scopeStack.top();
+        this->scopeStack.pop();
+        if(temp) delete temp;
+    }
 }
 
 void SymbolTable::enterScope(){
