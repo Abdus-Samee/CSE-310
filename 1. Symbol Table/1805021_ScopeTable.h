@@ -246,12 +246,5 @@ ScopeTable::~ScopeTable(){
 
     delete[] ptr;
 
-    if(this->getId() == "1") cout << "Destroying the First Scope\n";
-    cout << "Destroying the ScopeTable\n";
-
-    fstream outputFile;
-    outputFile.open("1805021_output.txt", ios::out | ios::app);
-    if(this->getId() == "1") outputFile << "Destroying the First Scope" << endl;
-    outputFile << "Destroying the ScopeTable" << endl;
-    outputFile.close();
+    this->parentScope = NULL;
 }
