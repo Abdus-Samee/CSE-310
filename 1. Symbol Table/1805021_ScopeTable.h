@@ -2,7 +2,7 @@
 #include <string>
 #include <cstring>
 #include <fstream>
-#include "SymbolInfo.h"
+#include "1805021_SymbolInfo.h"
 
 using namespace std;
 
@@ -74,15 +74,13 @@ bool ScopeTable::insert(string name, string type){
     if(res == 1){
         output = "Inserted in ScopeTable# " + getId() + " at position " + to_string(hash_value) + ", " + to_string(count);
         cout << output << endl;
-        //cout << "Inserted in ScopeTable# " << getId() << " at position " << hash_value << ", " << count <<  endl;
     }else{
         output = "<" + name + "," + type + "> already exists in current ScopeTable";
         cout << output << endl;
-        //cout << "<" << name << "," << type << "> already exists in current ScopeTable" << endl;
     }
 
     fstream outputFile;
-    outputFile.open("output.txt", ios::out | ios::app);
+    outputFile.open("1805021_output.txt", ios::out | ios::app);
     outputFile << output << endl;
     outputFile.close();
 
@@ -91,7 +89,7 @@ bool ScopeTable::insert(string name, string type){
 
 SymbolInfo* ScopeTable::lookup(string name){
     fstream outputFile;
-    outputFile.open("output.txt", ios::out | ios::app);
+    outputFile.open("1805021_output.txt", ios::out | ios::app);
     int hash_value = sdbmHash(name);
     SymbolInfo* res = NULL;
     string output = "";
@@ -168,7 +166,7 @@ bool ScopeTable::deleteEntry(string name){
     }
 
     fstream outputFile;
-    outputFile.open("output.txt", ios::out | ios::app);
+    outputFile.open("1805021_output.txt", ios::out | ios::app);
     outputFile << output << endl;
     outputFile.close();
 
@@ -177,7 +175,7 @@ bool ScopeTable::deleteEntry(string name){
 
 void ScopeTable::print(){
     fstream outputFile;
-    outputFile.open("output.txt", ios::out | ios::app);
+    outputFile.open("1805021_output.txt", ios::out | ios::app);
 
     cout << "Scope Table # " << getId() << endl;
     outputFile << "Scope Table # " << getId() << endl;
@@ -247,4 +245,13 @@ ScopeTable::~ScopeTable(){
     }
 
     delete[] ptr;
+
+    if(this->getId() == "1") cout << "Destroying the First Scope\n";
+    cout << "Destroying the ScopeTable\n";
+
+    fstream outputFile;
+    outputFile.open("1805021_output.txt", ios::out | ios::app);
+    if(this->getId() == "1") outputFile << "Destroying the First Scope" << endl;
+    outputFile << "Destroying the ScopeTable" << endl;
+    outputFile.close();
 }
