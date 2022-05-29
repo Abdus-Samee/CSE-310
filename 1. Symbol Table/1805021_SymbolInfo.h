@@ -9,6 +9,7 @@ class SymbolInfo{
     public:
         SymbolInfo* next;
         SymbolInfo();
+        ~SymbolInfo();
         SymbolInfo(string name, string type);
         string getName(){ return this->name; }
         string getType(){ return this->type; }
@@ -17,6 +18,12 @@ class SymbolInfo{
 };
 
 SymbolInfo::SymbolInfo(){}
+
+SymbolInfo::SymbolInfo(string name, string type){
+    this->name = name;
+    this->type = type;
+    next = NULL;
+}
 
 SymbolInfo::SymbolInfo(string name, string type){
     this->name = name;
