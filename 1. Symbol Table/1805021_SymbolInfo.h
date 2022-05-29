@@ -25,7 +25,7 @@ SymbolInfo::SymbolInfo(string name, string type){
     next = NULL;
 }
 
-SymbolInfo::SymbolInfo(string name, string type){
+SymbolInfo::~SymbolInfo(string name, string type){
     this->name = name;
     this->type = type;
     next = NULL;
