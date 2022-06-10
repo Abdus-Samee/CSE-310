@@ -8,6 +8,8 @@
 %x STR_STATE_2
 %x STR_NULL_STATE
 %x STR_STATE_ERROR
+%x COMMENT_STATE_1
+%x COMMENT_STATE_2
 
 %{
  #include <iostream>
@@ -92,7 +94,7 @@ special [t|n|a|b|f|v|r|\|'|0]
 <STR_STATE_1><<EOF>> {cout << "Error: Unfinished string\n"; BEGIN INITIAL;}
 <STR_STATE_1>[\n] {BEGIN STR_STATE_ERROR;}
 <STR_STATE_2>[\n] {BEGIN STR_STATE_1;}
-<STR_STATE_2>[\r\n] {}
+<STR_STATE_2>[\r] {}
 <STR_STATE_2>[0] {BEGIN STR_NULL_STATE;}
 <STR_STATE_2>{special}|["] {textChar = getSpecial(yytext);textStr += textChar;textChar="";BEGIN STR_STATE_1;}
 <STR_STATE_2>. {BEGIN STR_STATE_ERROR;}
@@ -103,6 +105,13 @@ special [t|n|a|b|f|v|r|\|'|0]
 <STR_STATE_ERROR>[^"\n] {}
 <STR_STATE_ERROR>[\n] {cout << "Invalid string format\n";}
 <STR_STATE_ERROR><<EOF>> {cout << "Invalid string format\n"; BEGIN INITIAL;}
+"//" {BEGIN COMMENT_STATE_1;}
+<COMMENT_STATE_1>(\\\n|\\\r\n) {}
+<COMMENT_STATE_1>[\n] {BEGIN INITIAL;}
+<COMMENT_STATE_1>. {}
+"/*" {BEGIN COMMENT_STATE_2;}
+<COMMENT_STATE_2>"*/" {BEGIN INITIAL;}
+<COMMENT_STATE_2>. {}
 [ ] {}
 %%
 
