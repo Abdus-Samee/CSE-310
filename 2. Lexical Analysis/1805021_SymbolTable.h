@@ -18,7 +18,7 @@ class SymbolTable{
         bool remove(string name);
         SymbolInfo* lookup(string name);
         void printCurrentScopeTable();
-        void printAllScopeTables();
+        void printAllScopeTables(fstream& logFile);
 };
 
 SymbolTable::SymbolTable(){
@@ -85,6 +85,7 @@ bool SymbolTable::insert(string name, string type){
         this->curr = new ScopeTable(this->total_buckets);
         this->scopeStack.push(this->curr);
     }
+    
     return this->curr->insert(name, type);
 }
 
@@ -144,22 +145,18 @@ void SymbolTable::printCurrentScopeTable(){
         return;
     }
 
-    this->curr->print();
+    //this->curr->print();
 }
 
-void SymbolTable::printAllScopeTables(){
+void SymbolTable::printAllScopeTables(fstream& logFile){
     if(this->scopeStack.empty()){
-        fstream outputFile;
-        outputFile.open("1805021_output.txt", ios::out | ios::app);
-        outputFile << "NO SCOPE AVAILABLE" << endl;
-        outputFile.close();
-
+        logFile << "NO SCOPE AVAILABLE" << endl;
         return;
     }
 
     stack<ScopeTable*> tempStack = this->scopeStack;
     while(!tempStack.empty()){
-        tempStack.top()->print();
+        tempStack.top()->print(logFile);
         tempStack.pop();
     }
 }
