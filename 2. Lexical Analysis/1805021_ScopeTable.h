@@ -19,7 +19,7 @@ class ScopeTable{
         bool insert(string name, string type);
         SymbolInfo* lookup(string name);
         bool deleteEntry(string name);
-        void print();
+        void print(fstream& logFile);
         int sdbmHash(string name);
         string getId();
         void setDeletedId(int id);
@@ -52,7 +52,7 @@ bool ScopeTable::insert(string name, string type){
         SymbolInfo* temp = ptr[hash_value];
         while(temp->next != NULL){
             if(temp->getName() == name){
-                res = -1;
+                res = -1;//duplicate entry
                 break;
             }
             temp = temp->next;
@@ -61,7 +61,7 @@ bool ScopeTable::insert(string name, string type){
 
         if(res == 0){
             if(temp->getName() == name){
-                res = -1;
+                res = -1;//duplicate entry
             }else{
                 temp->next = new SymbolInfo(name, type);
                 count++;
@@ -70,19 +70,9 @@ bool ScopeTable::insert(string name, string type){
         }
     }
 
-    string output = "";
-    if(res == 1){
-        cout << output << endl;
-    }else{
-        cout << output << endl;
-    }
+    if(res == -1) return false;
 
-    fstream outputFile;
-    outputFile.open("1805021_output.txt", ios::out | ios::app);
-    outputFile << output << endl;
-    outputFile.close();
-
-    return res;
+    return true;
 }
 
 SymbolInfo* ScopeTable::lookup(string name){
@@ -167,35 +157,28 @@ bool ScopeTable::deleteEntry(string name){
     return res;
 }
 
-void ScopeTable::print(){
-    fstream outputFile;
-    outputFile.open("1805021_output.txt", ios::out | ios::app);
-
-    outputFile << "Scope Table # " << getId() << endl;
+void ScopeTable::print(fstream& logFile){
+    logFile << "Scope Table # " << getId() << endl;
 
     for(int i = 0; i < total_buckets; i++){
         if(ptr[i] != NULL){
             SymbolInfo* temp = ptr[i];
-            cout << i << " --> ";
-            outputFile << i << " --> ";
+            logFile << i << " --> ";
             while(temp != NULL){
-                outputFile << "< " << temp->getName() << " : " << temp->getType() << " >  ";
+                logFile << "< " << temp->getName() << " : " << temp->getType() << " >  ";
                 temp = temp->next;
             }
-            outputFile << "\n";
-        }else{
-            outputFile << i << " -->\n";
+            logFile << "\n";
         }
     }
-
-    outputFile.close();
 }
 
 int ScopeTable::sdbmHash(string name){
-    int hash = 0;
+    unsigned int hash = 0;
     for(int i = 0; i < name.length(); i++){
         hash = name[i] + (hash << 6) + (hash << 16) - hash;
     }
+
     return hash % total_buckets;
 }
 
