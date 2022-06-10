@@ -26,9 +26,11 @@
 
  int line_count = 1;
  int error_count = 0;
+ bool multi;
  string textChar;
  string textComm;
  string textStr;
+ string textMulti;
  fstream tokenFile;
  fstream logFile;
  SymbolTable symbolTable(BUCKETS);
@@ -66,7 +68,7 @@
     else if(s == "\b") return pref+"b";
     else if(s == "\f") return pref+"f";
     else if(s == "\v") return pref+"v";
-    else if(s == "\\") return pref+"\\";
+    else if(s == "\\") return s;
     else if(s == "\'") return pref+"\'";
     else if(s == "\0") return pref+"0";
 
@@ -86,7 +88,7 @@
 %}
 
 digit [0-9]
-keyword "if"|"else"|"for"|"while"|"do"|"break"|"int"|"float"|"double"|"void"|"return"|"switch"|"case"|"default"|"continue"
+keyword "if"|"else"|"for"|"while"|"do"|"break"|"int"|"char"|"float"|"double"|"void"|"return"|"switch"|"case"|"default"|"continue"
 special [t|n|a|b|f|v|r|\|'|0]
 
 %%
@@ -202,37 +204,34 @@ special [t|n|a|b|f|v|r|\|'|0]
    logFile<<"Line no "<<line_count<<": TOKEN <RCURL> Lexeme "<<yytext<<" found\n";
    symbolTable.exitScope();
 }
-["] {textStr = ""; BEGIN STR_STATE_1;}
-<STR_STATE_1>[^"\\\n] {textStr += yytext;}
+["] {textStr = "";textMulti="";multi=false;BEGIN STR_STATE_1;}
+<STR_STATE_1>[^"\\\n] {textStr += yytext;textMulti+=yytext;}
 <STR_STATE_1>[\\] {BEGIN STR_STATE_2;}
 <STR_STATE_1>["] {
-   tokenFile<<"<STRING, "<<textStr<<"> ";
-   string s = formatStringForLog(textStr);
-   logFile<<"Line no "<<line_count<<": TOKEN <STRING> Lexeme "<<s<<" found\n";
-   bool res = symbolTable.insert(s, "ID");
-   if(res) symbolTable.printAllScopeTables(logFile);
-   else logFile << s << " already exists in current ScopeTable\n";
+   tokenFile<<"<STRING, \""<<textStr<<"\"> ";
+   string s;
+   if(!multi) s = formatStringForLog(textStr);
+   else s = textMulti;
+   logFile<<"Line no "<<line_count<<": TOKEN <STRING> Lexeme \""<<s<<"\" found --> <STRING, \""<<textStr<<"\">\n";
    textStr=""; 
    BEGIN INITIAL;
 }
 <STR_STATE_1><<EOF>> {cout<<"Unterminated string \""<<textStr<<endl;error_count++;BEGIN INITIAL;}
 <STR_STATE_1>(\r\n|\n) {cout<<"Unterminated string \""<<textStr<<endl;error_count++;line_count++;BEGIN INITIAL;}
-<STR_STATE_2>[\n] {line_count++;BEGIN STR_STATE_1;}
+<STR_STATE_2>[\n] {multi=true;line_count++;textMulti=textStr;textMulti += "\\\n";BEGIN STR_STATE_1;}
 <STR_STATE_2>[\r] {}
 <STR_STATE_2>[0] {BEGIN STR_NULL_STATE;}
-<STR_STATE_2>{special}|["] {textChar = getSpecial(yytext);textStr += textChar;textChar="";BEGIN STR_STATE_1;}
+<STR_STATE_2>{special}|["] {textChar = getSpecial(yytext);textStr += textChar;textMulti+=textChar;textChar="";BEGIN STR_STATE_1;}
 <STR_STATE_2>. {error_count++;BEGIN STR_STATE_ERROR;}
 <STR_NULL_STATE>[^"\n] {}
 <STR_NULL_STATE>["] {
-   tokenFile<<"<STRING, "<<textStr<<"> ";
+   tokenFile<<"<STRING, \""<<textStr<<"\"> ";
    string s = formatStringForLog(textStr);
-   logFile<<"Line no "<<line_count<<": TOKEN <STRING> Lexeme "<<s<<" found\n";
-   bool res = symbolTable.insert(s, "ID");
-   if(res) symbolTable.printAllScopeTables(logFile);
-   else logFile << s << " already exists in current ScopeTable\n";
+   logFile<<"Line no "<<line_count<<": TOKEN <STRING> Lexeme \""<<s<<"\" found --> <STRING, \""<<textStr<<"\">\n";
    textStr=""; 
    BEGIN INITIAL;
 }
+<STR_NULL_STATE>(\\\n|\\\r\n) {}
 <STR_NULL_STATE>[\n] {line_count++;error_count++;BEGIN STR_STATE_ERROR;}
 <STR_STATE_ERROR>["] {cout << "Invalid string format\n"; BEGIN INITIAL;}
 <STR_STATE_ERROR>[^"\n] {}
@@ -240,8 +239,8 @@ special [t|n|a|b|f|v|r|\|'|0]
 <STR_STATE_ERROR><<EOF>> {cout << "Invalid string format\n";error_count++;BEGIN INITIAL;}
 "//" {textComm="//";BEGIN COMMENT_STATE_1;}
 <COMMENT_STATE_1>(\\\n|\\\r\n) {textComm+="\\";line_count++;}
-<COMMENT_STATE_1>[\n] {
-   logFile<<"Line no "<<line_count<<": TOKEN <STRING> Lexeme "<<textComm<<" found\n";
+<COMMENT_STATE_1>(\n|\r\n) {
+   logFile<<"Line no "<<line_count<<": TOKEN <COMMENT> Lexeme "<<textComm<<" found\n";
    textComm=""; 
    line_count++;
    BEGIN INITIAL;
@@ -250,15 +249,16 @@ special [t|n|a|b|f|v|r|\|'|0]
 "/*" {textComm="/*";BEGIN COMMENT_STATE_2;}
 <COMMENT_STATE_2>"*/" {
    textComm += "*/";
-   logFile<<"Line no "<<line_count<<": TOKEN <STRING> Lexeme "<<textComm<<" found\n";
+   logFile<<"Line no "<<line_count<<": TOKEN <COMMENT> Lexeme "<<textComm<<" found\n";
    textComm=""; 
    BEGIN INITIAL;
 }
 <COMMENT_STATE_2>(\\\n|\\\r\n) {textComm+="\\";line_count++;}
+<COMMENT_STATE_2>(\n|\r\n) {textComm+="\n";line_count++;}
 <COMMENT_STATE_2>. {textComm+=yytext;}
 <COMMENT_STATE_2><<EOF>> {cout << "Error: Unfinished comment\n";error_count++;BEGIN INITIAL;}
 (\n|\r\n) {line_count++;}
-[ ] {}
+[ \t\f\r\v]+ {}
 %%
 
 int main(int argc, char* argv[], char* envp[]){
