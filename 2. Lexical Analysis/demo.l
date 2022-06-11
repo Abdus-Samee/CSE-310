@@ -104,7 +104,7 @@ special [t|n|a|b|f|v|r|\|'|0]
    if(res) symbolTable.printAllScopeTables(logFile);
    else logFile << s << " already exists in current ScopeTable\n";
 }
-{DIGIT}+[^".""E"\n","";" ]+ {
+{DIGIT}+[^\]".""E""+""-""/""*""%""=""+=""-=""*=""/=""%=""&&""||""("")""{""}""["","";"\n\r ]+ {
    error_count++;
    logFile<<"Error at line no "<<line_count<<" : Invalid prefix on ID or invalid suffix on Number "<<yytext<<"\n";
 }
@@ -195,9 +195,10 @@ special [t|n|a|b|f|v|r|\|'|0]
    BEGIN CHAR_STATE_2;
 }
 <CHAR_STATE_ERROR>(\r\n|\n) {
-   logFile<<"Unterminated character '\n";
+   logFile<<"Error at line no "<<line_count<<": Unterminated character '"<<textChar<<endl;
    error_count++;
    line_count++;
+   textChar="";
    BEGIN INITIAL;
 }
 <CHAR_STATE_ERROR><<EOF>> {
