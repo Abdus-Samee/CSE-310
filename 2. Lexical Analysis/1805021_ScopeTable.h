@@ -76,8 +76,6 @@ bool ScopeTable::insert(string name, string type){
 }
 
 SymbolInfo* ScopeTable::lookup(string name){
-    fstream outputFile;
-    outputFile.open("1805021_output.txt", ios::out | ios::app);
     int hash_value = sdbmHash(name);
     SymbolInfo* res = NULL;
     string output = "";
@@ -93,7 +91,6 @@ SymbolInfo* ScopeTable::lookup(string name){
             if(temp->getName() == name){
                 res = temp;
                 output = "Found in ScopeTable# " + getId() + " at position " + to_string(hash_value) + ", " + to_string(count);
-                outputFile << output << endl;
                 found = 1;
                 break;
             }
@@ -104,11 +101,8 @@ SymbolInfo* ScopeTable::lookup(string name){
         if((found==0) && temp->getName() == name){
             res = temp;
             output = "Found in ScopeTable# " + getId() + " at position " + to_string(hash_value) + ", " + to_string(count);
-            outputFile << output << endl;
         }
     }
-
-    outputFile.close();
 
     return res;
 }
@@ -148,11 +142,6 @@ bool ScopeTable::deleteEntry(string name){
     }else{
         output = "Not found\n" + name + " not found";
     }
-
-    fstream outputFile;
-    outputFile.open("1805021_output.txt", ios::out | ios::app);
-    outputFile << output << endl;
-    outputFile.close();
 
     return res;
 }
