@@ -170,10 +170,10 @@ special [t|n|a|b|f|v|r|\|'|0]
    BEGIN CHAR_STATE_ERROR;
 }
 <CHAR_STATE_2>' {
-   textChar=(textChar==" "? "''":textChar);
+   textChar=(textChar==" "? "' '":textChar);
    tokenFile<<"<CONST_CHAR, "<<textChar<<"> ";
-   logFile<<"Line no "<<line_count<<": TOKEN <CONST_CHAR> Lexeme '"<<isSpecial(textChar)<<"' found\n";
-   string s(yytext);
+   logFile<<"Line no "<<line_count<<": TOKEN <CONST_CHAR> Lexeme '"<<isSpecial(textChar)<<"' found --> <CONST_CHAR, "<<textChar<<">\n";
+   string s="'"+isSpecial(textChar)+"'";
    bool res = symbolTable.insert(s, "CONST_CHAR");
    if(res) symbolTable.printAllScopeTables(logFile);
    else logFile << s << " already exists in current ScopeTable\n";
@@ -382,20 +382,31 @@ special [t|n|a|b|f|v|r|\|'|0]
 <COMMENT_STATE_1>. {textComm+=yytext;}
 "/*" {
    textComm="/*";
+   multi=0;
    BEGIN COMMENT_STATE_2;
 }
 <COMMENT_STATE_2>"*/" {
    textComm += "*/";
    logFile<<"Line no "<<line_count<<": TOKEN <COMMENT> Lexeme "<<textComm<<" found\n";
    textComm=""; 
+   multi=0;
    BEGIN INITIAL;
 }
-<COMMENT_STATE_2>(\\\n|\\\r\n) {textComm+="\\";line_count++;}
-<COMMENT_STATE_2>(\n|\r\n) {textComm+="\n";line_count++;}
-<COMMENT_STATE_2>. {textComm+=yytext;}
+<COMMENT_STATE_2>(\\\n|\\\r\n) {
+   textComm+="\\";
+   multi++;
+   line_count++;
+}
+<COMMENT_STATE_2>(\n|\r\n) {
+   multi++;
+   line_count++;
+}
+<COMMENT_STATE_2>[^ \t\f\r\v] {textComm+=yytext;}
+<COMMENT_STATE_2>[ \t\f\r\v] {}
 <COMMENT_STATE_2><<EOF>> {
-   logFile<<"Error at line no "<<line_count<< ": Unterminated comment\n";
+   logFile<<"Error at line no "<<(line_count-multi)<< ": Unterminated comment \""<<textComm<<endl;
    error_count++;
+   multi=0;
    BEGIN INITIAL;
 }
 (\n|\r\n) {line_count++;}
@@ -418,7 +429,7 @@ int main(int argc, char* argv[], char* envp[]){
   return 0;
  }
 
- tokenFile.open("1805021_output.txt", ios::out);
+ tokenFile.open("1805021_token.txt", ios::out);
  logFile.open("1805021_log.txt", ios::out);
 
  if(!tokenFile) {
