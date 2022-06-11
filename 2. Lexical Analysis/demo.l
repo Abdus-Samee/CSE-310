@@ -26,7 +26,7 @@
 
  int line_count = 1;
  int error_count = 0;
- bool multi;
+ int multi;
  string textChar;
  string textComm;
  string textStr;
@@ -87,7 +87,7 @@
 
 %}
 
-digit [0-9]
+DIGIT [0-9]
 keyword "if"|"else"|"for"|"while"|"do"|"break"|"int"|"char"|"float"|"double"|"void"|"return"|"switch"|"case"|"default"|"continue"
 special [t|n|a|b|f|v|r|\|'|0]
 
@@ -96,7 +96,7 @@ special [t|n|a|b|f|v|r|\|'|0]
    tokenFile<<"<"<<toUpperCase(yytext)<<"> ";
    logFile<<"Line no "<<line_count<<": TOKEN <"<<toUpperCase(yytext)<<"> Lexeme "<<yytext<<" found\n";
 }
-{digit}+ {
+{DIGIT}+ {
    tokenFile<<"<CONST_INT, "<<yytext<<"> ";
    logFile<<"Line no "<<line_count<<": TOKEN <CONST_INT> Lexeme "<<yytext<<" found\n";
    string s(yytext);
@@ -104,17 +104,71 @@ special [t|n|a|b|f|v|r|\|'|0]
    if(res) symbolTable.printAllScopeTables(logFile);
    else logFile << s << " already exists in current ScopeTable\n";
 }
-{digit}*"."({digit}+|{digit}+[E][-]?{digit}+) {tokenFile<<"<CONST_FLOAT, "<<yytext<<"> ";}
-{digit}+[E][-]?{digit}+ {tokenFile<<"<CONST_FLOAT, "<<yytext<<"> ";}
-{digit}+[E][-]?{digit}+"."({digit}*|{digit}*[E][-]?{digit}+) {error_count++;cout<<"Ill formed number "<<yytext<<endl;}
-{digit}*"."{digit}+([E][-]?[0-9]+)?("."{digit}*|"."{digit}*[E][-]?{digit}+) {error_count++;cout<<"Too many decimal points "<<yytext<<endl;}
-' {textChar="";BEGIN CHAR_STATE_1;}
-<CHAR_STATE_1>(\r\n|\n) {cout<<"Unterminated character '\n";error_count++;line_count++;BEGIN INITIAL;}
-<CHAR_STATE_1>[^\'\\.] {textChar = yytext;BEGIN CHAR_STATE_2;}
-<CHAR_STATE_1>' {cout<<"Error: Empty character constant\n";error_count++;BEGIN INITIAL;}
+{DIGIT}+[^".""E"\n","";" ]+ {
+   error_count++;
+   logFile<<"Error at line no "<<line_count<<" : Invalid prefix on ID or invalid suffix on Number "<<yytext<<"\n";
+}
+{DIGIT}*"."({DIGIT}+|{DIGIT}+[E][-]?{DIGIT}+) {
+   tokenFile<<"<CONST_FLOAT, "<<yytext<<"> ";
+   logFile<<"Line no "<<line_count<<": TOKEN <CONST_FLOAT> Lexeme "<<yytext<<" found\n";
+   string s(yytext);
+   bool res = symbolTable.insert(s, "CONST_FLOAT");
+   if(res) symbolTable.printAllScopeTables(logFile);
+   else logFile << s << " already exists in current ScopeTable\n";
+}
+{DIGIT}+[E][-]?{DIGIT}+ {
+   tokenFile<<"<CONST_FLOAT, "<<yytext<<"> ";
+   logFile<<"Line no "<<line_count<<": TOKEN <CONST_FLOAT> Lexeme "<<yytext<<" found\n";
+   string s(yytext);
+   bool res = symbolTable.insert(s, "CONST_FLOAT");
+   if(res) symbolTable.printAllScopeTables(logFile);
+   else logFile << s << " already exists in current ScopeTable\n";
+}
+{DIGIT}+[E][-]?{DIGIT}+"."({DIGIT}*|{DIGIT}*[E][-]?{DIGIT}+) {
+   error_count++;
+   logFile<<"Error at line no "<<line_count<<": Ill formed number "<<yytext<<endl;
+}
+{DIGIT}*"."{DIGIT}+([E][-]?[0-9]+)?("."{DIGIT}*|"."{DIGIT}*[E][-]?{DIGIT}+) {
+   error_count++;
+   logFile<<"Error at line no "<<line_count<<": Too many decimal points "<<yytext<<endl;
+}
+' {
+   textChar="";
+   BEGIN CHAR_STATE_1;
+}
+<CHAR_STATE_1>(\r\n|\n) {
+   error_count++;
+   logFile<<"Error at line no "<<line_count<<": Unterminated character '\n";
+   line_count++;
+   textChar="";
+   BEGIN INITIAL;
+}
+<CHAR_STATE_1>[^\'\\.] {
+   textChar += yytext;
+   BEGIN CHAR_STATE_2;
+}
+<CHAR_STATE_1>' {
+   logFile<<"Error at line no: "<<line_count<<": Empty character constant error ''\n";
+   error_count++;
+   BEGIN INITIAL;
+}
 <CHAR_STATE_1>[\\] {BEGIN CHAR_STATE_3;}
-<CHAR_STATE_2>(\r\n|\n) {cout<<"Unterminated character '"<<isSpecial(textChar)<<endl;error_count++;line_count++;BEGIN INITIAL;}
-<CHAR_STATE_2>[^\'] {cout << "Error: Multi character constant\n";error_count++;BEGIN CHAR_STATE_ERROR;}
+<CHAR_STATE_1><<EOF>> {
+   error_count++;
+   logFile<<"Error at line no "<<line_count<<": Unterminated character '\n";
+   textChar="";
+   BEGIN INITIAL;
+}
+<CHAR_STATE_2>(\r\n|\n) {
+   logFile<<"Error at line no "<<line_count<<": Unterminated character '"<<isSpecial(textChar)<<endl;
+   error_count++;
+   line_count++;
+   BEGIN INITIAL;
+}
+<CHAR_STATE_2>[^\'] {
+   textChar += yytext;
+   BEGIN CHAR_STATE_ERROR;
+}
 <CHAR_STATE_2>' {
    textChar=(textChar==" "? "''":textChar);
    tokenFile<<"<CONST_CHAR, "<<textChar<<"> ";
@@ -126,14 +180,39 @@ special [t|n|a|b|f|v|r|\|'|0]
    textChar=""; 
    BEGIN INITIAL;
 }
-<CHAR_STATE_2><<EOF>> {cout<<"Unterminated character '"<<isSpecial(textChar)<<endl;error_count++;BEGIN INITIAL;}
-<CHAR_STATE_3>' {cout<<"Unterminated character '\\'\n";error_count++;BEGIN INITIAL;}
-<CHAR_STATE_3>{special} {textChar = getSpecial(yytext); BEGIN CHAR_STATE_2;}
-<CHAR_STATE_3>[^{special}] {cout<<"Unrecognized character\n";error_count++;BEGIN CHAR_STATE_ERROR;}
-<CHAR_STATE_ERROR>' {textChar=""; BEGIN INITIAL;}
-<CHAR_STATE_ERROR>(\r\n|\n) {cout<<"Unterminated character '\n";error_count++;line_count++;BEGIN INITIAL;}
-<CHAR_STATE_ERROR>[^\'] {cout << "Error: Multi character constant\n";error_count++;}
-<CHAR_STATE_ERROR><<EOF>> {cout<<"Unterminated character '\n";error_count++;BEGIN INITIAL;}
+<CHAR_STATE_2><<EOF>> {
+   logFile<<"Error at line no "<<line_count<<": Unterminated character '"<<isSpecial(textChar)<<endl;
+   error_count++;
+   BEGIN INITIAL;
+}
+<CHAR_STATE_3>' {
+   logFile<<"Error at line no "<<line_count<<": Unterminated character '\\'\n";
+   error_count++;
+   BEGIN INITIAL;
+}
+<CHAR_STATE_3>{special} {
+   textChar = getSpecial(yytext); 
+   BEGIN CHAR_STATE_2;
+}
+<CHAR_STATE_ERROR>(\r\n|\n) {
+   logFile<<"Unterminated character '\n";
+   error_count++;
+   line_count++;
+   BEGIN INITIAL;
+}
+<CHAR_STATE_ERROR><<EOF>> {
+   logFile<<"Error at line no "<<line_count<<": Unterminated character '"<<textChar<<endl;
+   error_count++;
+   textChar="";
+   BEGIN INITIAL;
+}
+<CHAR_STATE_ERROR>[^\'] {textChar += yytext;}
+<CHAR_STATE_ERROR>' {
+   logFile<<"Error at line no "<<line_count<<": Multi character constant error '"<<textChar<<"'\n";
+   error_count++;
+   textChar="";
+   BEGIN INITIAL;
+}
 [_A-Za-z][A-Za-z0-9_]* {
    tokenFile<<"<ID, "<<yytext<<"> ";
    logFile<<"Line no "<<line_count<<": TOKEN <ID> Lexeme "<<yytext<<" found\n";
@@ -146,7 +225,7 @@ special [t|n|a|b|f|v|r|\|'|0]
    tokenFile<<"<ADDOP, "<<yytext<<"> ";
    logFile<<"Line no "<<line_count<<": TOKEN <ADDOP> Lexeme "<<yytext<<" found\n";
 }
-"/"|"*"/"%" {
+"/"|"*"|"%" {
    tokenFile<<"<MULOP, "<<yytext<<"> ";
    logFile<<"Line no "<<line_count<<": TOKEN <MULOP> Lexeme "<<yytext<<" found\n";
 }
@@ -204,7 +283,7 @@ special [t|n|a|b|f|v|r|\|'|0]
    logFile<<"Line no "<<line_count<<": TOKEN <RCURL> Lexeme "<<yytext<<" found\n";
    symbolTable.exitScope();
 }
-["] {textStr = "";textMulti="";multi=false;BEGIN STR_STATE_1;}
+["] {textStr = "";textMulti="";multi=0;BEGIN STR_STATE_1;}
 <STR_STATE_1>[^"\\\n] {textStr += yytext;textMulti+=yytext;}
 <STR_STATE_1>[\\] {BEGIN STR_STATE_2;}
 <STR_STATE_1>["] {
@@ -216,13 +295,45 @@ special [t|n|a|b|f|v|r|\|'|0]
    textStr=""; 
    BEGIN INITIAL;
 }
-<STR_STATE_1><<EOF>> {cout<<"Unterminated string \""<<textStr<<endl;error_count++;BEGIN INITIAL;}
-<STR_STATE_1>(\r\n|\n) {cout<<"Unterminated string \""<<textStr<<endl;error_count++;line_count++;BEGIN INITIAL;}
-<STR_STATE_2>[\n] {multi=true;line_count++;textMulti=textStr;textMulti += "\\\n";BEGIN STR_STATE_1;}
-<STR_STATE_2>[\r] {}
+<STR_STATE_1><<EOF>> {
+   error_count++;
+   if(!multi) logFile<<"Error at line no "<<line_count<<": Unterminated String \""<<formatStringForLog(textStr)<<endl;
+   else logFile<<"Error at line no "<<line_count<<": Unterminated String \""<<textMulti<<"\n";
+   textStr="";
+   textMulti="";
+   BEGIN INITIAL;
+}
+<STR_STATE_1>(\r\n|\n) {
+   error_count++;
+   if(!multi) logFile<<"Error at line no "<<line_count<<": Unterminated String \""<<formatStringForLog(textStr)<<"\n";
+   else logFile<<"Error at line no "<<(line_count-multi)<<": Unterminated String \""<<textMulti<<"\n";
+   line_count++;
+   textStr="";
+   textMulti="";
+   BEGIN INITIAL;
+}
+<STR_STATE_2>(\n|\r\n) {
+   multi++;
+   line_count++;
+   textMulti=textStr;
+   textMulti += "\\\n";
+   BEGIN STR_STATE_1;
+}
 <STR_STATE_2>[0] {BEGIN STR_NULL_STATE;}
-<STR_STATE_2>{special}|["] {textChar = getSpecial(yytext);textStr += textChar;textMulti+=textChar;textChar="";BEGIN STR_STATE_1;}
-<STR_STATE_2>. {error_count++;BEGIN STR_STATE_ERROR;}
+<STR_STATE_2>{special}|["] {
+   textChar = getSpecial(yytext);
+   textStr += textChar;
+   textMulti+=textChar;
+   textChar="";
+   BEGIN STR_STATE_1;
+}
+<STR_STATE_2>. {
+   error_count++;
+   textStr+="\\";
+   textStr+=yytext;
+   logFile<<"Error at line no "<<line_count<<": Invalid escape sequence \\ \""<<textStr<<"\n";
+   BEGIN STR_STATE_ERROR;
+}
 <STR_NULL_STATE>[^"\n] {}
 <STR_NULL_STATE>["] {
    tokenFile<<"<STRING, \""<<textStr<<"\"> ";
@@ -232,13 +343,36 @@ special [t|n|a|b|f|v|r|\|'|0]
    BEGIN INITIAL;
 }
 <STR_NULL_STATE>(\\\n|\\\r\n) {}
-<STR_NULL_STATE>[\n] {line_count++;error_count++;BEGIN STR_STATE_ERROR;}
-<STR_STATE_ERROR>["] {cout << "Invalid string format\n"; BEGIN INITIAL;}
-<STR_STATE_ERROR>[^"\n] {}
-<STR_STATE_ERROR>[\n] {line_count++;error_count++;cout << "Invalid string format\n";}
-<STR_STATE_ERROR><<EOF>> {cout << "Invalid string format\n";error_count++;BEGIN INITIAL;}
-"//" {textComm="//";BEGIN COMMENT_STATE_1;}
-<COMMENT_STATE_1>(\\\n|\\\r\n) {textComm+="\\";line_count++;}
+<STR_NULL_STATE>[\n] {
+   line_count++;
+   error_count++;
+   BEGIN STR_STATE_ERROR;
+}
+<STR_STATE_ERROR>["] {
+   logFile<<"Error at line no "<<line_count<<": Invalid String format \""<<textStr<<"\"\n"; 
+   BEGIN INITIAL;
+}
+<STR_STATE_ERROR>[^"\n] {textStr+=yytext;}
+<STR_STATE_ERROR>[\n] {
+   error_count++;
+   logFile<<"Error at line no "<<line_count<<": Unterminated String \""<<textStr<<endl;
+   line_count++;
+   textStr="";
+   BEGIN INITIAL;
+}
+<STR_STATE_ERROR><<EOF>> {
+   logFile<<"Error at line no "<<line_count<<": Unterminated String \""<<textStr<<endl;
+   error_count++;
+   BEGIN INITIAL;
+}
+"//" {
+   textComm="//";
+   BEGIN COMMENT_STATE_1;
+}
+<COMMENT_STATE_1>(\\\n|\\\r\n) {
+   textComm+="\\";
+   line_count++;
+}
 <COMMENT_STATE_1>(\n|\r\n) {
    logFile<<"Line no "<<line_count<<": TOKEN <COMMENT> Lexeme "<<textComm<<" found\n";
    textComm=""; 
@@ -246,7 +380,10 @@ special [t|n|a|b|f|v|r|\|'|0]
    BEGIN INITIAL;
 }
 <COMMENT_STATE_1>. {textComm+=yytext;}
-"/*" {textComm="/*";BEGIN COMMENT_STATE_2;}
+"/*" {
+   textComm="/*";
+   BEGIN COMMENT_STATE_2;
+}
 <COMMENT_STATE_2>"*/" {
    textComm += "*/";
    logFile<<"Line no "<<line_count<<": TOKEN <COMMENT> Lexeme "<<textComm<<" found\n";
@@ -256,9 +393,17 @@ special [t|n|a|b|f|v|r|\|'|0]
 <COMMENT_STATE_2>(\\\n|\\\r\n) {textComm+="\\";line_count++;}
 <COMMENT_STATE_2>(\n|\r\n) {textComm+="\n";line_count++;}
 <COMMENT_STATE_2>. {textComm+=yytext;}
-<COMMENT_STATE_2><<EOF>> {cout << "Error: Unfinished comment\n";error_count++;BEGIN INITIAL;}
+<COMMENT_STATE_2><<EOF>> {
+   logFile<<"Error at line no "<<line_count<< ": Unterminated comment\n";
+   error_count++;
+   BEGIN INITIAL;
+}
 (\n|\r\n) {line_count++;}
 [ \t\f\r\v]+ {}
+. {
+   error_count++;
+   logFile<<"Error at line no "<<line_count<<": Unrecognized character "<<yytext<<"\n";
+}
 %%
 
 int main(int argc, char* argv[], char* envp[]){
@@ -284,10 +429,12 @@ int main(int argc, char* argv[], char* envp[]){
  yyin = fin;
  yylex();
  fclose(yyin);
+
+ symbolTable.printAllScopeTables(logFile);
+ logFile << "Total lines: " << line_count << endl;
+ logFile << "Total errors: " << error_count << endl;
+
  tokenFile.close();
  logFile.close();
-
- cout << "Total lines: " << line_count << endl;
- cout << "Total errors: " << error_count << endl;
  return 0;
 }
