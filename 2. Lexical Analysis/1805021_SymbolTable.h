@@ -44,21 +44,10 @@ void SymbolTable::enterScope(){
     this->scopeStack.push(newScope);
     newScope->setParentScope(this->curr);
     this->curr = newScope;
-
-
-    fstream outputFile;
-    outputFile.open("1805021_output.txt", ios::out | ios::app);
-    outputFile << "New ScopeTable with id " << this->curr->getId() << " created" << endl;
-    outputFile.close();
 }
 
 void SymbolTable::exitScope(){
     if(this->scopeStack.empty()){
-        fstream outputFile;
-        outputFile.open("1805021_output.txt", ios::out | ios::app);
-        outputFile << "NO CURRENT SCOPE" << endl;
-        outputFile.close();
-
         return;
     }
 
@@ -71,11 +60,6 @@ void SymbolTable::exitScope(){
     }else{
         this->curr = NULL;
     }
-
-    fstream outputFile;
-    outputFile.open("1805021_output.txt", ios::out | ios::app);
-    outputFile << "ScopeTable with id " << deletedTable->getId() << " removed" << endl;
-    outputFile.close();
 
     delete deletedTable;
 }
@@ -91,11 +75,6 @@ bool SymbolTable::insert(string name, string type){
 
 bool SymbolTable::remove(string name){
     if(this->scopeStack.empty()){
-        fstream outputFile;
-        outputFile.open("1805021_output.txt", ios::out | ios::app);
-        outputFile << "NO SCOPE TO REMOVE FROM" << endl;
-        outputFile.close();
-
         return false;
     }
     return this->curr->deleteEntry(name);
@@ -103,11 +82,6 @@ bool SymbolTable::remove(string name){
 
 SymbolInfo* SymbolTable::lookup(string name){
     if(this->scopeStack.empty()){
-        fstream outputFile;
-        outputFile.open("1805021_output.txt", ios::out | ios::app);
-        outputFile << "NO SCOPE TO LOOKUP FROM" << endl;
-        outputFile.close();
-
         return NULL;
     }
 
@@ -126,10 +100,7 @@ SymbolInfo* SymbolTable::lookup(string name){
     }
 
     if(res == NULL){
-        fstream outputFile;
-        outputFile.open("1805021_output.txt", ios::out | ios::app);
-        outputFile << "Not found" << endl;
-        outputFile.close();
+        
     }
 
     return res;
@@ -137,11 +108,6 @@ SymbolInfo* SymbolTable::lookup(string name){
 
 void SymbolTable::printCurrentScopeTable(){
     if(this->scopeStack.empty()){
-        fstream outputFile;
-        outputFile.open("1805021_output.txt", ios::out | ios::app);
-        outputFile << "NO CURRENT SCOPE" << endl;
-        outputFile.close();
-
         return;
     }
 
