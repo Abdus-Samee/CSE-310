@@ -97,8 +97,21 @@ special [t|n|a|b|f|v|r|\|'|0]
 
 %%
 {keyword} {
-   tokenFile<<"<"<<toUpperCase(yytext)<<"> ";
-   logFile<<"Line no "<<line_count<<": TOKEN <"<<toUpperCase(yytext)<<"> Lexeme "<<yytext<<" found\n";
+   string s = toUpperCase(yytext);
+   if(s == "IF") return IF;
+   else if(s == "ELSE") return ELSE;
+   else if(s == "FOR") return FOR;
+   else if(s == "WHILE") return WHILE;
+   else if(s == "DO") return DO;
+   else if(s == "INT") return INT;
+   else if(s == "CHAR") return CHAR;
+   else if(s == "FLOAT") return FLOAT;
+   else if(s == "DOUBLE") return DOUBLE;
+   else if(s == "VOID") return VOID;
+   else if(s == "RETURN") return RETURN;
+   else if(s == "CASE") return CASE;
+   else if(s == "DEFAULT") return DEFAULT;
+   else if(s == "CONTINUE") return CONTINUE;
 }
 
 {DIGIT}+ {
@@ -177,11 +190,11 @@ special [t|n|a|b|f|v|r|\|'|0]
 }
 
 <CHAR_STATE_2>' {
-   textChar=(textChar==" "? "' '":textChar);
-   tokenFile<<"<CONST_CHAR, "<<textChar<<"> ";
-   logFile<<"Line no "<<line_count<<": TOKEN <CONST_CHAR> Lexeme '"<<isSpecial(textChar)<<"' found --> <CONST_CHAR, "<<textChar<<">\n";
+   string s = isSpecial(textChar);
    textChar=""; 
-   BEGIN INITIAL;
+   yyval.si = new SymbolInfo(s, "CONST_CHAR");
+   return CONST_CHAR;
+   /*BEGIN INITIAL;*/
 }
 
 <CHAR_STATE_2><<EOF>> {
@@ -427,7 +440,10 @@ special [t|n|a|b|f|v|r|\|'|0]
    BEGIN INITIAL;
 }
 
-(\n|\r\n) {line_count++;}
+(\n|\r\n) {
+   line_count++;
+   return NEWLINE;
+}
 
 [ \t\f\r\v]+ {}
 
