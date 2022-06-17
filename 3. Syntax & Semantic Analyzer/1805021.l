@@ -20,7 +20,7 @@
  #include <fstream>
  #include "1805021_SymbolInfo.h"
  #include "y.tab.h"
- 
+
  using namespace std;
 
  int line_count = 1;
@@ -31,7 +31,6 @@
  string textStr;
  string textMulti;
  fstream tokenFile;
- fstream logFile;
 
  string toUpperCase(char* s){
     string res = s;
@@ -102,46 +101,37 @@ special [t|n|a|b|f|v|r|\|'|0]
    else if(s == "ELSE") return ELSE;
    else if(s == "FOR") return FOR;
    else if(s == "WHILE") return WHILE;
-   else if(s == "DO") return DO;
    else if(s == "INT") return INT;
-   else if(s == "CHAR") return CHAR;
    else if(s == "FLOAT") return FLOAT;
-   else if(s == "DOUBLE") return DOUBLE;
    else if(s == "VOID") return VOID;
    else if(s == "RETURN") return RETURN;
-   else if(s == "CASE") return CASE;
-   else if(s == "DEFAULT") return DEFAULT;
-   else if(s == "CONTINUE") return CONTINUE;
 }
 
 {DIGIT}+ {
-   yyval.si = new SymbolInfo(yytext, "CONST_INT");
+   yylval.si = new SymbolInfo(yytext, "CONST_INT");
    return CONST_INT;
 }
 
 {DIGIT}+[^\]".""E""+""-""/""*""%""=""+=""-=""*=""/=""%=""&&""||""("")""{""}""["","";"\n\r ]+ {
    error_count++;
-   logFile<<"Error at line no "<<line_count<<" : Invalid prefix on ID or invalid suffix on Number "<<yytext<<"\n";
 }
 
 {DIGIT}*"."({DIGIT}+|{DIGIT}+[E][-]?{DIGIT}+) {
-   yyval.si = new SymbolInfo(yytext, "CONST_FLOAT");
+   yylval.si = new SymbolInfo(yytext, "CONST_FLOAT");
    return CONST_FLOAT;
 }
 
 {DIGIT}+[E][-]?{DIGIT}+ {
-   yyval.si = new SymbolInfo(yytext, "CONST_FLOAT");
+   yylval.si = new SymbolInfo(yytext, "CONST_FLOAT");
    return CONST_FLOAT;
 }
 
 {DIGIT}+[E][-]?{DIGIT}+"."({DIGIT}*|{DIGIT}*[E][-]?{DIGIT}+) {
    error_count++;
-   logFile<<"Error at line no "<<line_count<<": Ill formed number "<<yytext<<endl;
 }
 
 {DIGIT}*"."{DIGIT}+([E][-]?[0-9]+)?("."{DIGIT}*|"."{DIGIT}*[E][-]?{DIGIT}+) {
    error_count++;
-   logFile<<"Error at line no "<<line_count<<": Too many decimal points "<<yytext<<endl;
 }
 
 ' {
@@ -151,7 +141,6 @@ special [t|n|a|b|f|v|r|\|'|0]
 
 <CHAR_STATE_1>(\r\n|\n) {
    error_count++;
-   logFile<<"Error at line no "<<line_count<<": Unterminated character '\n";
    line_count++;
    textChar="";
    BEGIN INITIAL;
@@ -163,7 +152,6 @@ special [t|n|a|b|f|v|r|\|'|0]
 }
 
 <CHAR_STATE_1>' {
-   logFile<<"Error at line no: "<<line_count<<": Empty character constant error ''\n";
    error_count++;
    BEGIN INITIAL;
 }
@@ -172,13 +160,11 @@ special [t|n|a|b|f|v|r|\|'|0]
 
 <CHAR_STATE_1><<EOF>> {
    error_count++;
-   logFile<<"Error at line no "<<line_count<<": Unterminated character '\n";
    textChar="";
    BEGIN INITIAL;
 }
 
 <CHAR_STATE_2>(\r\n|\n) {
-   logFile<<"Error at line no "<<line_count<<": Unterminated character '"<<isSpecial(textChar)<<endl;
    error_count++;
    line_count++;
    BEGIN INITIAL;
@@ -192,19 +178,17 @@ special [t|n|a|b|f|v|r|\|'|0]
 <CHAR_STATE_2>' {
    string s = isSpecial(textChar);
    textChar=""; 
-   yyval.si = new SymbolInfo(s, "CONST_CHAR");
+   yylval.si = new SymbolInfo(s, "CONST_CHAR");
    return CONST_CHAR;
    /*BEGIN INITIAL;*/
 }
 
 <CHAR_STATE_2><<EOF>> {
-   logFile<<"Error at line no "<<line_count<<": Unterminated character '"<<isSpecial(textChar)<<endl;
    error_count++;
    BEGIN INITIAL;
 }
 
 <CHAR_STATE_3>' {
-   logFile<<"Error at line no "<<line_count<<": Unterminated character '\\'\n";
    error_count++;
    BEGIN INITIAL;
 }
@@ -215,7 +199,6 @@ special [t|n|a|b|f|v|r|\|'|0]
 }
 
 <CHAR_STATE_ERROR>(\r\n|\n) {
-   logFile<<"Error at line no "<<line_count<<": Unterminated character '"<<textChar<<endl;
    error_count++;
    line_count++;
    textChar="";
@@ -223,7 +206,6 @@ special [t|n|a|b|f|v|r|\|'|0]
 }
 
 <CHAR_STATE_ERROR><<EOF>> {
-   logFile<<"Error at line no "<<line_count<<": Unterminated character '"<<textChar<<endl;
    error_count++;
    textChar="";
    BEGIN INITIAL;
@@ -232,19 +214,20 @@ special [t|n|a|b|f|v|r|\|'|0]
 <CHAR_STATE_ERROR>[^\'] {textChar += yytext;}
 
 <CHAR_STATE_ERROR>' {
-   logFile<<"Error at line no "<<line_count<<": Multi character constant error '"<<textChar<<"'\n";
    error_count++;
    textChar="";
    BEGIN INITIAL;
 }
 
 [_A-Za-z][A-Za-z0-9_]* {
-   SymbolInfo* si = new SymbolInfo(yytext, "ID");
-   yyval.si = si;
-   RETURN ID;
+   yylval.si = new SymbolInfo(yytext, "ID");
+   return ID;
 }
 
-"+"|"-" { return ADDOP; }
+"+"|"-" { 
+   yylval.si = new SymbolInfo(yytext, "ADDOP");
+   return ADDOP; 
+}
 
 "/"|"*"|"%" { return MULOP; }
 
@@ -287,15 +270,12 @@ special [t|n|a|b|f|v|r|\|'|0]
    string s;
    if(!multi) s = formatStringForLog(textStr, false);
    else s = formatStringForLog(textMulti, true);
-   logFile<<"Line no "<<line_count<<": TOKEN <STRING> Lexeme \""<<s<<"\" found --> <STRING, \""<<textStr<<"\">\n";
    textStr=""; 
    BEGIN INITIAL;
 }
 
 <STR_STATE_1><<EOF>> {
    error_count++;
-   if(!multi) logFile<<"Error at line no "<<line_count<<": Unterminated String \""<<formatStringForLog(textStr, false)<<endl;
-   else logFile<<"Error at line no "<<line_count<<": Unterminated String \""<<formatStringForLog(textMulti, true)<<"\n";
    textStr="";
    textMulti="";
    BEGIN INITIAL;
@@ -303,8 +283,6 @@ special [t|n|a|b|f|v|r|\|'|0]
 
 <STR_STATE_1>(\r\n|\n) {
    error_count++;
-   if(!multi) logFile<<"Error at line no "<<line_count<<": Unterminated String \""<<formatStringForLog(textStr, false)<<"\n";
-   else logFile<<"Error at line no "<<(line_count-multi)<<": Unterminated String \""<<formatStringForLog(textMulti, true)<<"\n";
    line_count++;
    textStr="";
    textMulti="";
@@ -341,7 +319,6 @@ special [t|n|a|b|f|v|r|\|'|0]
    error_count++;
    textStr+="\\";
    textStr+=yytext;
-   logFile<<"Error at line no "<<line_count<<": Invalid escape sequence \\ \""<<textStr<<"\n";
    BEGIN STR_STATE_ERROR;
 }
 
@@ -352,7 +329,6 @@ special [t|n|a|b|f|v|r|\|'|0]
    string s;
    if(multi) s = formatStringForLog(textStr, true);
    else s = formatStringForLog(textStr, false);
-   logFile<<"Line no "<<line_count<<": TOKEN <STRING> Lexeme \""<<s<<"\" found --> <STRING, \""<<textStr<<"\">\n";
    textStr=""; 
    BEGIN INITIAL;
 }
@@ -366,7 +342,6 @@ special [t|n|a|b|f|v|r|\|'|0]
 }
 
 <STR_STATE_ERROR>["] {
-   logFile<<"Error at line no "<<line_count<<": Invalid String format \""<<textStr<<"\"\n"; 
    BEGIN INITIAL;
 }
 
@@ -374,14 +349,12 @@ special [t|n|a|b|f|v|r|\|'|0]
 
 <STR_STATE_ERROR>[\n] {
    error_count++;
-   logFile<<"Error at line no "<<line_count<<": Unterminated String \""<<textStr<<endl;
    line_count++;
    textStr="";
    BEGIN INITIAL;
 }
 
 <STR_STATE_ERROR><<EOF>> {
-   logFile<<"Error at line no "<<line_count<<": Unterminated String \""<<textStr<<endl;
    error_count++;
    BEGIN INITIAL;
 }
@@ -397,7 +370,6 @@ special [t|n|a|b|f|v|r|\|'|0]
 }
 
 <COMMENT_STATE_1>(\n|\r\n) {
-   logFile<<"Line no "<<line_count<<": TOKEN <COMMENT> Lexeme "<<textComm<<" found\n";
    textComm=""; 
    line_count++;
    BEGIN INITIAL;
@@ -412,7 +384,6 @@ special [t|n|a|b|f|v|r|\|'|0]
 
 <COMMENT_STATE_2>"*/" {
    textComm += "*/";
-   logFile<<"Line no "<<line_count<<": TOKEN <COMMENT> Lexeme "<<textComm<<" found\n";
    textComm=""; 
    multi=0;
    BEGIN INITIAL;
@@ -434,7 +405,6 @@ special [t|n|a|b|f|v|r|\|'|0]
 <COMMENT_STATE_2>[ \t\f\r\v] {}
 
 <COMMENT_STATE_2><<EOF>> {
-   logFile<<"Error at line no "<<(line_count-multi)<< ": Unterminated comment \""<<textComm<<endl;
    error_count++;
    multi=0;
    BEGIN INITIAL;
@@ -449,7 +419,6 @@ special [t|n|a|b|f|v|r|\|'|0]
 
 . {
    error_count++;
-   logFile<<"Error at line no "<<line_count<<": Unrecognized character "<<yytext<<"\n";
 }
 
 %%
