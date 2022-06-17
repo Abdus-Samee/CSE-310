@@ -11,20 +11,25 @@
 
  int yylex(void);
 
- SymbolTable symbolTable(BUCKETS);
+ fstream logFile;
+ SymbolTable symbolTabl(BUCKETS);
 
 %}
 
 %union{
     int num;
     double d;
-    char *str;
-    SymbolInfo *si;
+    char* str;
+    SymbolInfo* si;
 }
 
-%token ADDOP NOT MULOP ASSIGNOP LPAREN RPAREN LCURL RCURL LTHIRD RTHIRD INCOP DECOP RELOP LOGICOP COMMA SEMICOLON
-%token ID IF ELSE WHILE FOR NEWLINE NUMBER CONST_INT CONST_FLOAT INT FLOAT VOID PRINTLN RETURN SLASH ASTERISK
+%token<si> ID ADDOP MULOP CONST_INT CONST_FLOAT CONST_CHAR
+%token<num>  IF ELSE WHILE FOR NEWLINE NUMBER INT FLOAT VOID PRINTLN RETURN
+%token<num> NOT ASSIGNOP RELOP LPAREN RPAREN COMMA SEMICOLON LOGICOP INCOP DECOP LCURL RCURL LTHIRD RTHIRD
 
+// Precedence: LOWER_THAN_ELSE < ELSE. Higher precedence, lower position
+%nonassoc LOWER_THAN_ELSE
+%nonassoc ELSE
 
 %%
 start: program;
@@ -42,8 +47,12 @@ func_declaration: type_specifier ID LPAREN parameter_list RPAREN SEMICOLON
     | type_specifier ID LPAREN RPAREN SEMICOLON
     ;
 
-func_definition: type_specifier ID LPAREN parameter_list RPAREN compound_statement
-    | type_specifier ID LPAREN RPAREN compound_statement
+func_definition: type_specifier ID LPAREN parameter_list RPAREN compound_statement  { 
+        symbolTable.enterScope();    
+    }
+    | type_specifier ID LPAREN RPAREN compound_statement    { 
+        symbolTable.enterScope();    
+    }
     ;
 
 parameter_list: parameter_list COMMA type_specifier ID
@@ -78,7 +87,7 @@ statement: var_declaration
     | expression_statement
     | compound_statement
     | FOR LPAREN expression_statement expression_statement expression RPAREN statement
-    | IF LPAREN expression RPAREN expression
+    | IF LPAREN expression RPAREN expression    %prec LOWER_THAN_ELSE
     | IF LPAREN expression RPAREN expression ELSE statement
     | WHILE LPAREN expression RPAREN statement
     | PRINTLN LPAREN ID RPAREN SEMICOLON
@@ -89,7 +98,7 @@ expression_statement: SEMICOLON
     | expression SEMICOLON
     ;
 
-variable: ID
+variable: ID    { symbolTable.insert($1->getName(), "ID"); }
     | ID LTHIRD expression RTHIRD
     ;
 
@@ -139,6 +148,9 @@ arguments: arguments COMMA logic_expression
 
 main()
 {
+    logFile.open("1805021_log.txt", ios::out);
     yyparse();
+
+    logFile.close();
     exit(0);
 }
