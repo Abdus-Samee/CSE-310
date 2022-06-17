@@ -1,7 +1,6 @@
 %{
  #include <bits/stdc++.h>
  #include "1805021_SymbolTable.h"
- #include "1805021_SymbolInfo.h"
 
  #define BUCKETS 7
 
@@ -12,7 +11,7 @@
  int yylex(void);
 
  fstream logFile;
- SymbolTable symbolTabl(BUCKETS);
+ SymbolTable symbolTable(BUCKETS);
 
 %}
 
@@ -23,8 +22,8 @@
     SymbolInfo* si;
 }
 
-%token<si> ID ADDOP MULOP CONST_INT CONST_FLOAT CONST_CHAR
-%token<num>  IF ELSE WHILE FOR NEWLINE NUMBER INT FLOAT VOID PRINTLN RETURN
+%token<si> ADDOP ID MULOP CONST_INT CONST_FLOAT CONST_CHAR
+%token<num> IF ELSE WHILE FOR NEWLINE NUMBER INT FLOAT VOID PRINTLN RETURN
 %token<num> NOT ASSIGNOP RELOP LPAREN RPAREN COMMA SEMICOLON LOGICOP INCOP DECOP LCURL RCURL LTHIRD RTHIRD
 
 // Precedence: LOWER_THAN_ELSE < ELSE. Higher precedence, lower position
@@ -75,7 +74,7 @@ type_specifier: INT
 
 declaration_list: declaration_list COMMA ID
     | declaration_list COMMA ID LTHIRD CONST_INT RTHIRD
-    | ID
+    | ID    { symbolTable.insert($1->getName(), "ID"); }
     | ID LTHIRD CONST_INT RTHIRD
     ;
 
