@@ -108,7 +108,8 @@ special [t|n|a|b|f|v|r|\|'|0]
 }
 
 {DIGIT}+ {
-   yylval.si = new SymbolInfo(yytext, "CONST_INT");
+   string s = yytext;
+   yylval.si = new SymbolInfo(s, "CONST_INT");
    return CONST_INT;
 }
 
@@ -117,12 +118,14 @@ special [t|n|a|b|f|v|r|\|'|0]
 }
 
 {DIGIT}*"."({DIGIT}+|{DIGIT}+[E][-]?{DIGIT}+) {
-   yylval.si = new SymbolInfo(yytext, "CONST_FLOAT");
+   string s = yytext;
+   yylval.si = new SymbolInfo(s, "CONST_FLOAT");
    return CONST_FLOAT;
 }
 
 {DIGIT}+[E][-]?{DIGIT}+ {
-   yylval.si = new SymbolInfo(yytext, "CONST_FLOAT");
+   string s = yytext;
+   yylval.si = new SymbolInfo(s, "CONST_FLOAT");
    return CONST_FLOAT;
 }
 
@@ -412,7 +415,6 @@ special [t|n|a|b|f|v|r|\|'|0]
 
 (\n|\r\n) {
    line_count++;
-   return NEWLINE;
 }
 
 [ \t\f\r\v]+ {}
