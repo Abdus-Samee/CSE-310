@@ -1,6 +1,8 @@
 %{
  #include <bits/stdc++.h>
  #include "1805021_SymbolTable.h"
+ 
+ extern FILE *yyin;
 
  #define BUCKETS 7
 
@@ -16,15 +18,12 @@
 %}
 
 %union{
-    int num;
-    double d;
-    char* str;
     SymbolInfo* si;
 }
 
 %token<si> ADDOP ID MULOP CONST_INT CONST_FLOAT CONST_CHAR
-%token<num> IF ELSE WHILE FOR NEWLINE NUMBER INT FLOAT VOID PRINTLN RETURN
-%token<num> NOT ASSIGNOP RELOP LPAREN RPAREN COMMA SEMICOLON LOGICOP INCOP DECOP LCURL RCURL LTHIRD RTHIRD
+%token IF ELSE WHILE FOR NUMBER INT FLOAT VOID PRINTLN RETURN
+%token NOT ASSIGNOP RELOP LPAREN RPAREN COMMA SEMICOLON LOGICOP INCOP DECOP LCURL RCURL LTHIRD RTHIRD
 
 // Precedence: LOWER_THAN_ELSE < ELSE. Higher precedence, lower position
 %nonassoc LOWER_THAN_ELSE
@@ -67,7 +66,7 @@ compound_statement: LCURL statements RCURL
 var_declaration: type_specifier declaration_list SEMICOLON
     ;
 
-type_specifier: INT
+type_specifier: INT {  }
     | FLOAT
     | VOID
     ;
@@ -129,7 +128,7 @@ unary_expression: ADDOP unary_expression
 factor: variable
     | ID LPAREN argument_list RPAREN
     | LPAREN expression RPAREN
-    | CONST_INT
+    | CONST_INT { cout << yylval.si->getName() << endl; }
     | CONST_FLOAT
     | variable INCOP
     | variable DECOP
@@ -145,11 +144,26 @@ arguments: arguments COMMA logic_expression
 
 %%
 
-main()
+main(int argc, char* argv[], char* endp[])
 {
+    if(argc != 2){
+        printf("Please provide input file name!\n");
+        exit(1);
+    }
+
+    FILE* fin = fopen(argv[1], "r");
+    if(fin == NULL){
+        printf("Cannot open specified file\n");
+        exit(1);
+    }
+
     logFile.open("1805021_log.txt", ios::out);
+
+    yyin = fin;
     yyparse();
+    fclose(yyin);
 
     logFile.close();
+
     exit(0);
 }
