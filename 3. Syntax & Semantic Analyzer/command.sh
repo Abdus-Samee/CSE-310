@@ -1,6 +1,6 @@
 #!/bin/bash
 
-yacc -d -y 1805021.y
+yacc -d -y -v 1805021.y
 echo 'Generated the parser C file as well the header file'
 g++ -w -c -o y.o y.tab.c
 echo 'Generated the parser object file'
