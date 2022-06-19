@@ -23,8 +23,9 @@
 
  using namespace std;
 
- int line_count = 1;
- int error_count = 0;
+ extern int line_count;
+ extern int error_count;
+ 
  int multi;
  string textChar;
  string textComm;
@@ -232,11 +233,17 @@ special [t|n|a|b|f|v|r|\|'|0]
    return ADDOP; 
 }
 
-"/"|"*"|"%" { return MULOP; }
+"/"|"*"|"%" { 
+   yylval.si = new SymbolInfo(yytext, "MULOP");
+   return MULOP;
+ }
 
 "=" { return ASSIGNOP; }
 
-"&&"|"||" { return LOGICOP; }
+"&&"|"||" { 
+   yylval.si = new SymbolInfo(yytext, "LOGICOP");
+   return LOGICOP;
+ }
 
 "(" { return LPAREN; }
 
@@ -248,7 +255,10 @@ special [t|n|a|b|f|v|r|\|'|0]
 
 "--" { return DECOP; }
 
-"<"|"<="|">"|">="|"=="|"!=" { return RELOP; }
+"<"|"<="|">"|">="|"=="|"!=" { 
+   yylval.si = new SymbolInfo(yytext, "RELOP");
+   return RELOP;
+ }
 
 "[" { return LTHIRD; }
 
