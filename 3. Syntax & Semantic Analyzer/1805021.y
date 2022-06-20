@@ -195,11 +195,11 @@ statement: var_declaration  {
         $$ = new SymbolInfo("for("+$3->getName()+" "+$4->getName()+" "+$5->getName()+") "+$7->getName(), "statement");
         logFile << "Line " << line_count << ": statement : FOR LPAREN expression_statement expression_statement expression RPAREN statement\n" << $$->getName() << endl;
     }
-    | IF LPAREN expression RPAREN expression    %prec LOWER_THAN_ELSE   {
+    | IF LPAREN expression RPAREN statement    %prec LOWER_THAN_ELSE   {
         $$ = new SymbolInfo("if("+$3->getName()+") "+$5->getName(), "statement");
         logFile << "Line " << line_count << ": statement : IF LPAREN expression RPAREN expression\n" << $$->getName() << endl;
     }
-    | IF LPAREN expression RPAREN expression ELSE statement {
+    | IF LPAREN expression RPAREN statement ELSE statement {
         $$ = new SymbolInfo("if("+$3->getName()+") "+$5->getName()+" else "+$7->getName(), "statement");
         logFile << "Line " << line_count << ": statement : IF LPAREN expression RPAREN expression ELSE statement\n" << $$->getName() << endl;
     }
