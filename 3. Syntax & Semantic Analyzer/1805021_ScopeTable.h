@@ -16,7 +16,7 @@ class ScopeTable{
     public:
         ScopeTable(int total_buckets);
         ~ScopeTable();
-        bool insert(string name, string type);
+        bool insert(SymbolInfo* symbolInfo);
         SymbolInfo* lookup(string name);
         bool deleteEntry(string name);
         void print(fstream& logFile);
@@ -40,18 +40,18 @@ ScopeTable::ScopeTable(int total_buckets){
     }
 }
 
-bool ScopeTable::insert(string name, string type){
+bool ScopeTable::insert(SymbolInfo* symbolInfo){
     int count = 0;
-    int hash_value = sdbmHash(name);
+    int hash_value = sdbmHash(symbolInfo->getName());
     int res = 0;
 
     if(ptr[hash_value] == NULL){
-        ptr[hash_value] = new SymbolInfo(name, type);
+        ptr[hash_value] = symbolInfo;
         res = 1;
     }else{
         SymbolInfo* temp = ptr[hash_value];
         while(temp->next != NULL){
-            if(temp->getName() == name){
+            if(temp->getName() == symbolInfo->getName()){
                 res = -1;//duplicate entry
                 break;
             }
@@ -60,10 +60,10 @@ bool ScopeTable::insert(string name, string type){
         }
 
         if(res == 0){
-            if(temp->getName() == name){
+            if(temp->getName() == symbolInfo->getName()){
                 res = -1;//duplicate entry
             }else{
-                temp->next = new SymbolInfo(name, type);
+                temp->next = symbolInfo;
                 count++;
                 res = 1;
             }
