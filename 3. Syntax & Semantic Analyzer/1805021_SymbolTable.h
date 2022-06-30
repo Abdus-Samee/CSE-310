@@ -14,7 +14,7 @@ class SymbolTable{
         ~SymbolTable();
         void enterScope();
         void exitScope();
-        bool insert(string name, string type);
+        bool insert(SymbolInfo* symbolInfo);
         bool remove(string name);
         SymbolInfo* lookup(string name);
         void printCurrentScopeTable();
@@ -64,13 +64,13 @@ void SymbolTable::exitScope(){
     delete deletedTable;
 }
 
-bool SymbolTable::insert(string name, string type){
+bool SymbolTable::insert(SymbolInfo* symbolInfo){
     if(this->scopeStack.empty()){
         this->curr = new ScopeTable(this->total_buckets);
         this->scopeStack.push(this->curr);
     }
     
-    return this->curr->insert(name, type);
+    return this->curr->insert(symbolInfo);
 }
 
 bool SymbolTable::remove(string name){
