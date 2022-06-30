@@ -16,6 +16,7 @@
  int yylex(void);
 
  fstream logFile;
+ fstream errorFile;
  SymbolTable symbolTable(BUCKETS);
 
  vector<string> splitString (string str, char seperator)  
@@ -29,7 +30,31 @@
     }
 
     return outputArray;
- }  
+ }
+
+ bool isVarArray(string s){
+    regex arr_var("[_A-Za-z][A-Za-z0-9_]*\[[0-9]+\]");
+    if(regex_match(s, arr_var)) return true;
+
+    return false;
+ }
+
+ string getArrayName(string s){
+    string ans = "";
+    for(int i = 0; (i < s.length()) && (s[i] != '['); i++) ans += s[i];
+
+    return ans;
+ }
+
+ string getArrayLength(string s){
+    regex regexp("[0-9]+");
+    smatch m;
+    regex_search(s, m, regexp);
+    string sz = "";
+    for(auto x : m) sz += x;
+
+    return sz;
+ }
 
 %}
 
@@ -125,7 +150,25 @@ compound_statement: LCURL statements RCURL  {
 var_declaration: type_specifier declaration_list SEMICOLON  {
         $$ = new SymbolInfo($1->getName()+" "+$2->getName()+";", "var_declaration");
         vector<string> splitted = splitString($2->getName(), ',');
-        logFile << "Line " << line_count << ": type_specifier declaration_list : declaration_list COMMA ID\n" << $2->getName() << endl;
+        for(string s : splitted){
+            SymbolInfo* variable;
+
+            if(isVarArray(s)){
+                string name = getArrayName(s);
+                string len = getArrayLength(s);
+                variable = new SymbolInfo(name, $1->getName());
+                variable->setArrayLength(len);
+            }else{
+                variable = new SymbolInfo(s, $1->getName());
+            }
+
+            if(!symbolTable.insert(variable)){
+                error_count++;
+                errorFile << "Error at line " << line_count << ": Multiple declaration of " << s << endl;
+            }
+        }
+
+        logFile << "Line " << line_count << ": var_declaration : type_specifier declaration_list SEMICOLON\n" << $2->getName() << endl;
     }
     ;
 type_specifier: INT { 
@@ -155,7 +198,7 @@ declaration_list: declaration_list COMMA ID {
     }
     | ID LTHIRD CONST_INT RTHIRD    {
         $$ = new SymbolInfo($1->getName()+"["+$3->getName()+"]", "ID");
-        logFile << "Line " << line_count << ": declaration_list : ID LTHIRD CONST_INT RTHIRD\n" << $1->getName() << endl;
+        logFile << "Line " << line_count << ": declaration_list : ID LTHIRD CONST_INT RTHIRD\n" << $$->getName() << endl;
     }
     ;
 statements: statement   {
@@ -218,6 +261,16 @@ variable: ID    {
         logFile << "Line " << line_count << ": variable : ID\n" << $$->getName() << endl; 
     }
     | ID LTHIRD expression RTHIRD   { 
+        if(symbolTable.lookup($1->getName()) == NULL){
+            error_count++;
+            errorFile << "Error at line " << line_count << ": Undeclared variable " << $1->getName() << endl;
+        }else{
+            if($3->getType() != "CONST_INT"){
+                error_count++;
+                errorFile << "Error at line " << line_count << ": Expression inside third brackets not an integer" << endl;
+            }
+        }
+
         $$ = new SymbolInfo($1->getName()+"["+$3->getName()+"]", "variable");
         logFile << "Line " << line_count << ": variable : ID LTHIRD expression RTHIRD\n" << $$->getName() << endl; 
     }
@@ -331,15 +384,22 @@ main(int argc, char* argv[], char* endp[])
         printf("Please provide input file name!\n");
         exit(1);
     }
+
     FILE* fin = fopen(argv[1], "r");
     if(fin == NULL){
         printf("Cannot open specified file\n");
         exit(1);
     }
+
     logFile.open("1805021_log.txt", ios::out);
+    errorFile.open("1805021_error.txt", ios::out);
+
     yyin = fin;
     yyparse();
     fclose(yyin);
+
     logFile.close();
+    errorFile.close();
+
     exit(0);
 }
