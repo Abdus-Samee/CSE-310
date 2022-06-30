@@ -6,6 +6,7 @@ using namespace std;
 class SymbolInfo{
         string name;
         string type;
+        string length;
     public:
         SymbolInfo* next;
 
@@ -16,6 +17,7 @@ class SymbolInfo{
         SymbolInfo(string name, string type){
             this->name = name;
             this->type = type;
+            this->length = "";
             next = NULL;
         }
 
@@ -27,4 +29,5 @@ class SymbolInfo{
         string getType(){ return this->type; }
         void setName(string name){ this->name = name; }
         void setType(string type){ this->type = type; }
+        void setArrayLength(string length){ this->length = length; }
 };
