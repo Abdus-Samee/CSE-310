@@ -256,7 +256,14 @@ expression_statement: SEMICOLON {
         logFile << "Line " << line_count << ": expression_statement : expression SEMICOLON\n" << $$->getName() << endl;
     }
     ;
-variable: ID    { 
+variable: ID    {
+        SymbolInfo* var = symbolTable.lookup($1->getName());
+
+        if(var == NULL){
+            error_count++;
+            errorFile << "Error at line " << line_count << ": Undeclared variable " << $1->getName() << endl;
+        }
+
         $$ = new SymbolInfo($1->getName(), "variable");
         logFile << "Line " << line_count << ": variable : ID\n" << $$->getName() << endl; 
     }
@@ -280,6 +287,29 @@ expression: logic_expression    {
         logFile << "Line " << line_count << ": expression : logic_expression\n" << $$->getName() << endl;
     }
     | variable ASSIGNOP logic_expression    {
+        SymbolInfo* var = symbolTable.lookup($1->getName());
+        
+        if(var == NULL){
+
+        }else{
+            if(var->getArrayLength() != ""){
+                if(!isVarArray($1->getName())){
+                    error_count++;
+                    errorFile << "Error at line " << line_count << ": Type mismatch, " << $1->getName() << " is an array" << endl;
+                }
+            }else{
+                string varType = var->getType();
+                string valType = $3->getType();
+
+                if((varType=="int" && valType=="CONST_INT") || (varType=="float" && valType=="CONST_FLOAT")){
+
+                }else{
+                    error_count++;
+                    errorFile << "Error at line " << line_count << ": Type mismatch" << endl;
+                }
+            }
+        }
+
         $$ = new SymbolInfo($1->getName()+"="+$3->getName(), "expression");
         logFile << "Line " << line_count << ": expression : variable ASSIGNOP logic_expression\n" << $$->getName() << endl;
     }
