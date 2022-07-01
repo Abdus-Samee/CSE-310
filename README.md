@@ -10,3 +10,11 @@ sudo apt-get install flex
 ```
 Anyone having trouble compiling flex files with this can install another version of flex:
 `sudo apt-get install flex-old`
+
+## Installation of Bison
+Like flex, one needs a LINUX based system or a WSL or a Virtual Box in order to use Bison. Using Bison in Windows system is strictly prohibited.
+The commands to install in `LINUX system` is as follows:
+```
+sudo apt-get update
+sudo apt-get install bison
+```
