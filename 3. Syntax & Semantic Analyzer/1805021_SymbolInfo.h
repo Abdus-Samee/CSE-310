@@ -30,4 +30,5 @@ class SymbolInfo{
         void setName(string name){ this->name = name; }
         void setType(string type){ this->type = type; }
         void setArrayLength(string length){ this->length = length; }
+        string getArrayLength() { return this->length; }
 };
