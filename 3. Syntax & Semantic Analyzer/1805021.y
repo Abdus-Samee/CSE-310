@@ -133,7 +133,10 @@ parameter_list: parameter_list COMMA type_specifier ID  {
         logFile << "Line " << line_count << ": parameter_list: parameter_list COMMA type_specifier\n" << $$->getName() << endl;
     }
     | type_specifier ID {
+        string type = $1->getType();
         SymbolInfo* var;
+
+        $$ = new SymbolInfo($1->getName()+" "+$2->getName(), type);
 
         if(isVarArray($2->getName())){
             string name = getArrayName($2->getName());
@@ -146,12 +149,14 @@ parameter_list: parameter_list COMMA type_specifier ID  {
 
         if(!symbolTable.insert(var)){
             error_count++;
+            $$->setType("error");
             errorFile << "Error at line " << line_count << ": Multiple declaration of " << $2->getName() << endl;
+            logFile << "Line " << line_count << ": parameter_list: type_specifier ID\n";
             logFile << "Error at line " << line_count << ": Multiple declaration of " << $2->getName() << endl;
+            logFile << $$->getName() << endl;
+        }else{
+            logFile << "Line " << line_count << ": parameter_list: type_specifier ID\n" << $$->getName() << endl;
         }
-
-        $$ = new SymbolInfo($1->getName()+" "+$2->getName(), "parameter_list");
-        logFile << "Line " << line_count << ": parameter_list: type_specifier ID\n" << $$->getName() << endl;
     }
     | type_specifier    {
         $$ = new SymbolInfo($1->getName(), "parameter_list");
@@ -189,7 +194,9 @@ var_declaration: type_specifier declaration_list SEMICOLON  {
             if(!symbolTable.insert(variable)){
                 error_count++;
                 errorFile << "Error at line " << line_count << ": Multiple declaration of " << s << endl;
+                logFile << "Line " << line_count << ": var_declaration : type_specifier declaration_list SEMICOLON\n";
                 logFile << "Error at line " << line_count << ": Multiple declaration of " << s << endl;
+                logFile << $2->getName() << endl;
             }
         }
 
@@ -295,34 +302,47 @@ variable: ID    {
             error_count++;
             type = "error";
             errorFile << "Error at line " << line_count << ": Undeclared variable " << $1->getName() << endl;
+            logFile << "Line " << line_count << ": variable : ID\n";
             logFile << "Error at line " << line_count << ": Undeclared variable " << $1->getName() << endl;
+            logFile << $1->getName() << endl;
         }else if(var->getArrayLength() != ""){
             if($1->getArrayLength() == ""){
                 error_count++;
                 type = "error";
                 errorFile << "Error at line " << line_count << ": Type mismatch, " << $1->getName() << " is an array" << endl;
+                logFile << "Line " << line_count << ": variable : ID\n"; 
                 logFile << "Error at line " << line_count << ": Type mismatch, " << $1->getName() << " is an array" << endl;
+                logFile << $1->getName() << endl;
             }
+        }else{
+            type = var->getType();
+            logFile << "Line " << line_count << ": variable : ID\n" << $1->getName() << endl;
         }
 
         $$ = new SymbolInfo($1->getName(), type);
-        logFile << "Line " << line_count << ": variable : ID\n" << $$->getName() << endl; 
     }
     | ID LTHIRD expression RTHIRD   { 
+        $$ = new SymbolInfo($1->getName()+"["+$3->getName()+"]", $1->getType());
+
         if(symbolTable.lookup($1->getName()) == NULL){
             error_count++;
             errorFile << "Error at line " << line_count << ": Undeclared variable " << $1->getName() << endl;
+            logFile << "Line " << line_count << ": variable : ID LTHIRD expression RTHIRD\n"; 
             logFile << "Error at line " << line_count << ": Undeclared variable " << $1->getName() << endl;
+            logFile << $$->getName() << endl;
+            $$->setType("error");
         }else{
             if($3->getType() != "CONST_INT"){
                 error_count++;
                 errorFile << "Error at line " << line_count << ": Expression inside third brackets not an integer" << endl;
+                logFile << "Line " << line_count << ": variable : ID LTHIRD expression RTHIRD\n"; 
                 logFile << "Error at line " << line_count << ": Expression inside third brackets not an integer" << endl;
+                logFile << $$->getName() << endl;
+                $$->setType("error");
+            }else{
+                logFile << "Line " << line_count << ": variable : ID LTHIRD expression RTHIRD\n" << $$->getName() << endl;
             }
-        }
-
-        $$ = new SymbolInfo($1->getName()+"["+$3->getName()+"]", "variable");
-        logFile << "Line " << line_count << ": variable : ID LTHIRD expression RTHIRD\n" << $$->getName() << endl; 
+        } 
     }
     ;
 
@@ -334,26 +354,28 @@ expression: logic_expression    {
         string type = $1->getType();
         SymbolInfo* var = symbolTable.lookup($1->getName());
         
-        if(var == NULL){
+        $$ = new SymbolInfo($1->getName()+"="+$3->getName(), type);
 
+        if(var == NULL){
+            logFile << "Line " << line_count << ": expression : variable ASSIGNOP logic_expression\n" << $$->getName() << endl;
         }else{
             string varType = var->getType();
             string valType = $3->getType();
 
             if((varType=="int" && valType=="CONST_INT") || (varType=="float" && valType=="CONST_FLOAT")){
-
+                logFile << "Line " << line_count << ": expression : variable ASSIGNOP logic_expression\n" << $$->getName() << endl;
             }else if(valType == "error"){
-                type = "error";
+                $$->setType("error");
+                logFile << "Line " << line_count << ": expression : variable ASSIGNOP logic_expression\n" << $$->getName() << endl;
             }else{
                 error_count++;
                 type = "error";
                 errorFile << "Error at line " << line_count << ": Type mismatch" << endl;
+                logFile << "Line " << line_count << ": expression : variable ASSIGNOP logic_expression\n";
                 logFile << "Error at line " << line_count << ": Type mismatch" << endl;
+                logFile << $$->getName() << endl;
             }
         }
-
-        $$ = new SymbolInfo($1->getName()+"="+$3->getName(), type);
-        logFile << "Line " << line_count << ": expression : variable ASSIGNOP logic_expression\n" << $$->getName() << endl;
     }
     ;
 
@@ -382,7 +404,7 @@ simple_expression: term {
         logFile << "Line " << line_count << ": simple_expression : term\n" << $$->getName() << endl;
     }
     | simple_expression ADDOP term  {
-        $$ = new SymbolInfo($1->getName()+yylval.si->getName()+$3->getName(), "simple_expression");
+        $$ = new SymbolInfo($1->getName()+$2->getName()+$3->getName(), "simple_expression");
         logFile << "Line " << line_count << ": simple_expression : simple_expression ADDOP term\n" << $$->getName() << endl;
     }
     ;
@@ -393,15 +415,19 @@ term: unary_expression  {
     }
     | term MULOP unary_expression   {
         string type = $3->getType();
+
+        $$ = new SymbolInfo($1->getName()+$2->getName()+$3->getName(), type);
+
         if(($2->getName() == "%") && (($1->getType() != "CONST_INT") || ($3->getType() != "CONST_INT"))){
             error_count++;
-            type = "error";
+            $$->setType("error");
             errorFile << "Error at line " << line_count << ": Non-Integer operand on modulus operator" << endl;
+            logFile << "Line " << line_count << ": term : term MULOP unary_expression\n";
             logFile << "Error at line " << line_count << ": Non-Integer operand on modulus operator" << endl;
+            logFile << $$->getName() << endl;
+        }else{
+            logFile << "Line " << line_count << ": term : term MULOP unary_expression\n" << $$->getName() << endl;
         }
-        
-        $$ = new SymbolInfo($1->getName()+$2->getName()+$3->getName(), type);
-        logFile << "Line " << line_count << ": term : term MULOP unary_expression\n" << $$->getName() << endl;
     }
     ;
 
