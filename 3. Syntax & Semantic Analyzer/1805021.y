@@ -62,9 +62,9 @@
     SymbolInfo* si;
 }
 
-%token<si> ADDOP ID MULOP CONST_INT CONST_FLOAT CONST_CHAR
+%token<si> ADDOP ID MULOP CONST_INT CONST_FLOAT CONST_CHAR RELOP LOGICOP
 %token IF ELSE WHILE FOR NUMBER INT FLOAT VOID PRINTLN RETURN
-%token NOT ASSIGNOP RELOP LPAREN RPAREN COMMA SEMICOLON LOGICOP INCOP DECOP LCURL RCURL LTHIRD RTHIRD
+%token NOT ASSIGNOP LPAREN RPAREN COMMA SEMICOLON  INCOP DECOP LCURL RCURL LTHIRD RTHIRD
 
 %type<si> start program unit func_declaration func_definition
 %type<si> parameter_list var_declaration type_specifier declaration_list argument_list arguments
@@ -105,8 +105,26 @@ unit: var_declaration   {
     ;
 
 func_declaration: type_specifier ID LPAREN parameter_list RPAREN SEMICOLON  {
+        string name = $2->getName();
+        SymbolInfo* var = symbolTable.lookup(name);
+
         $$ = new SymbolInfo($1->getName()+" "+$2->getName()+"("+$4->getName()+");", "func_declaration");
-        logFile << "Line " << line_count << ": func_declaration: type_specifier ID LPAREN parameter_list RPAREN SEMICOLON\n" << $$->getName() << endl;
+
+        if(var == NULL){
+            vector<string> paramList = splitString($4->getName(), ',');
+            var = new SymbolInfo(name, $2->getType());
+            var->setDataType("function");
+            var->setFunctionReturnType($1->getName());
+            var->setParams(paramList);
+            symbolTable.insert(var);
+            logFile << "Line " << line_count << ": func_declaration: type_specifier ID LPAREN parameter_list RPAREN SEMICOLON\n" << $$->getName() << endl;
+        }else{
+            error_count++;
+            errorFile << "Error at line " << line_count << ": Multiple declaration of " << name << endl;
+            logFile << "Line " << line_count << ": func_declaration : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON\n";
+            logFile << "Error at line " << line_count << ": Multiple declaration of " << name << endl;
+            logFile << $$->getName() << endl;
+        }
     }
     | type_specifier ID LPAREN RPAREN SEMICOLON {
         $$ = new SymbolInfo($1->getName()+" "+$2->getName()+"();", "func_declaration");
@@ -114,9 +132,122 @@ func_declaration: type_specifier ID LPAREN parameter_list RPAREN SEMICOLON  {
     }
     ;
 
-func_definition: type_specifier ID LPAREN parameter_list RPAREN compound_statement  { 
-        $$ = new SymbolInfo($1->getName()+" "+$2->getName()+"("+$4->getName()+")"+$6->getName(), "func_definition");
-        logFile << "Line " << line_count << ": func_definition: type_specifier ID LPAREN parameter_list RPAREN compound_statement\n" << $$->getName() << endl;    
+func_definition: type_specifier ID LPAREN parameter_list RPAREN { 
+        string name = $2->getName();
+        SymbolInfo* var = symbolTable.lookup(name);
+
+        if(var == NULL){
+            vector<string> paramList = splitString($4->getName(), ',');
+            var = new SymbolInfo(name, $2->getType());
+            var->setDataType("function");
+            var->setParams(paramList);
+            var->setFunctionDefined(true);
+            var->setFunctionReturnType($1->getName());
+            symbolTable.insert(var);
+            symbolTable.enterScope();
+            for(string p : paramList){
+                vector<string> variable = splitString(p, ' ');
+                string varType = variable[0];
+                string varName = variable[1];
+                SymbolInfo* temp;
+                if(isVarArray(varName)){
+                    string name = getArrayName(varName);
+                    string len = getArrayLength(varName);
+                    temp = new SymbolInfo(name, "ID");
+                    temp->setArrayLength(len);
+                    temp->setDataType(varType);
+                }else{
+                    temp = new SymbolInfo(varName, "ID");
+                    temp->setDataType(varType);
+                }
+
+                if(!symbolTable.insert(temp)){
+                    error_count++;
+                    errorFile << "Error at line " << line_count << ": Multiple declaration of " << varName << endl;
+                    logFile << "Line " << line_count << ": func_definition: type_specifier ID LPAREN parameter_list RPAREN\n";
+                    logFile << "Error at line " << line_count << ": Multiple declaration of " << varName << endl;
+                }
+            }
+            //logFile << "Line " << line_count << ": func_declaration: type_specifier ID LPAREN parameter_list RPAREN SEMICOLON\n" << $$->getName() << endl;
+        }else{
+            if(var->getDataType() == "function"){
+                vector<string> declaredParams = var->getParams();
+                bool isDefined = var->getFunctionDefined();
+                int declaredParamLen = declaredParams.size();
+                vector<string> definedParams = splitString($4->getName(), ',');
+                int definedParamLen = definedParams.size();
+
+                if(isDefined){
+                    error_count++;
+                    errorFile << "Error at line " << line_count << ": Multiple declaration of function\n";
+                    logFile << "Line " << line_count << ": func_definition: type_specifier ID LPAREN parameter_list RPAREN\n";
+                    logFile << "Error at line " << line_count << ": Multiple declaration of function " << name << endl;
+                }else if(declaredParamLen != definedParamLen){
+                    error_count++;
+                    errorFile << "Error at line " << line_count << ": Total number of arguments mismatch with declaration in function " << name << endl;
+                    logFile << "Line " << line_count << ": func_definition: type_specifier ID LPAREN parameter_list RPAREN\n";
+                    logFile << "Error at line " << line_count << ": Total number of arguments mismatch with declaration in function " << name << endl;
+                }else if($1->getName() != var->getFunctionReturnType()){
+                    error_count++;
+                    errorFile << "Line " << line_count << ": Return type mismatch with function declaration in function " << name << endl;
+                    logFile << "Line " << line_count << ": func_definition: type_specifier ID LPAREN parameter_list RPAREN\n";
+                    logFile << "Error at line " << line_count << ": Return type mismatch with function declaration in function " << name << endl;
+                }else{
+                    symbolTable.remove(name);
+                    SymbolInfo* f = new SymbolInfo(name, $2->getType());
+                    f->setDataType("function");
+                    f->setParams(var->getParams());
+                    f->setFunctionDefined(true);
+                    f->setFunctionReturnType($1->getName());
+                    symbolTable.insert(f);
+                    symbolTable.enterScope();
+                    for(int i = 0; i < definedParamLen; i++){
+                        string p = definedParams[i];
+                        string q = declaredParams[i];
+                        if(p != q){
+                            error_count++;
+                            errorFile << "Error at line " << line_count << ": " << (i+1) << "th parameter's name not given in function definition of " << name << endl;
+                            logFile << "Line " << line_count << ": func_definition: type_specifier ID LPAREN parameter_list RPAREN\n";
+                            logFile << "Error at line " << line_count << ": " << (i+1) << "th parameter's name not given in function definition of\n" << name << endl;
+                        }else{
+                            vector<string> definedVariable = splitString(p, ' ');
+                            string varType = definedVariable[0];
+                            string varName = definedVariable[1];
+                            SymbolInfo* temp;
+                            if(isVarArray(varName)){
+                                string name = getArrayName(varName);
+                                string len = getArrayLength(varName);
+                                temp = new SymbolInfo(name, "ID");
+                                temp->setArrayLength(len);
+                                temp->setDataType(varType);
+                            }else{
+                                temp = new SymbolInfo(varName, "ID");
+                                temp->setDataType(varType);
+                            }
+
+                            if(!symbolTable.insert(temp)){
+                                error_count++;
+                                errorFile << "Error at line " << line_count << ": Multiple declaration of " << varName << endl;
+                                logFile << "Line " << line_count << ": func_definition: type_specifier ID LPAREN parameter_list RPAREN\n";
+                                logFile << "Error at line " << line_count << ": Multiple declaration of " << varName << endl;
+                            }
+                        }
+                    }
+                }
+            }else{
+                symbolTable.enterScope();
+                error_count++;
+                errorFile << "Error at line " << line_count << ": Variable not a function\n";
+                logFile << "Line " << line_count << ": func_definition: type_specifier ID LPAREN parameter_list RPAREN\n";
+                logFile << "Error at line " << line_count << ": Variable not a function " << name << endl;
+            }
+        }
+
+        
+    }
+    compound_statement  {
+        $$ = new SymbolInfo($1->getName()+" "+$2->getName()+"("+$4->getName()+")"+$7->getName(), "func_definition");
+        logFile << "Line " << line_count << ": func_definition: type_specifier ID LPAREN parameter_list RPAREN compound_statement\n" << $$->getName() << endl;
     }
     | type_specifier ID LPAREN RPAREN compound_statement    { 
         $$ = new SymbolInfo($1->getName()+" "+$2->getName()+"()"+$5->getName(), "func_definition");
@@ -133,30 +264,8 @@ parameter_list: parameter_list COMMA type_specifier ID  {
         logFile << "Line " << line_count << ": parameter_list: parameter_list COMMA type_specifier\n" << $$->getName() << endl;
     }
     | type_specifier ID {
-        string type = $1->getType();
-        SymbolInfo* var;
-
-        $$ = new SymbolInfo($1->getName()+" "+$2->getName(), type);
-
-        if(isVarArray($2->getName())){
-            string name = getArrayName($2->getName());
-            string len = getArrayLength($2->getName());
-            var = new SymbolInfo(name, $1->getName());
-            var->setArrayLength(len);
-        }else{
-            var = new SymbolInfo($2->getName(), $1->getName());
-        }
-
-        if(!symbolTable.insert(var)){
-            error_count++;
-            $$->setType("error");
-            errorFile << "Error at line " << line_count << ": Multiple declaration of " << $2->getName() << endl;
-            logFile << "Line " << line_count << ": parameter_list: type_specifier ID\n";
-            logFile << "Error at line " << line_count << ": Multiple declaration of " << $2->getName() << endl;
-            logFile << $$->getName() << endl;
-        }else{
-            logFile << "Line " << line_count << ": parameter_list: type_specifier ID\n" << $$->getName() << endl;
-        }
+        $$ = new SymbolInfo($1->getName()+" "+$2->getName(), "parameter_list");
+        logFile << "Line " << line_count << ": parameter_list: type_specifier ID\n" << $$->getName() << endl;
     }
     | type_specifier    {
         $$ = new SymbolInfo($1->getName(), "parameter_list");
@@ -165,11 +274,13 @@ parameter_list: parameter_list COMMA type_specifier ID  {
     ;
 
 compound_statement: LCURL statements RCURL  {
-        symbolTable.exitScope();
-        $$ = new SymbolInfo("{\n"+$2->getName()+"\n}", "compound_statement");
+        $$ = new SymbolInfo("{\n"+$2->getName()+"\n}", $2->getType());
         logFile << "Line " << line_count << ": compound_statement: LCURL statements RCURL\n" << $$->getName() << endl;
+        symbolTable.printAllScopeTables(logFile);
+        symbolTable.exitScope();
     }
     | LCURL RCURL   {
+        symbolTable.printAllScopeTables(logFile);
         symbolTable.exitScope();
         $$ = new SymbolInfo("{}", "compound_statement");
         logFile << "Line " << line_count << ": compound_statement: LCURL RCURL\n" << $$->getName() << endl;
@@ -185,10 +296,12 @@ var_declaration: type_specifier declaration_list SEMICOLON  {
             if(isVarArray(s)){
                 string name = getArrayName(s);
                 string len = getArrayLength(s);
-                variable = new SymbolInfo(name, $1->getName());
+                variable = new SymbolInfo(name, $2->getType());
                 variable->setArrayLength(len);
+                variable->setDataType($1->getName());
             }else{
-                variable = new SymbolInfo(s, $1->getName());
+                variable = new SymbolInfo(s, $2->getType());
+                variable->setDataType($1->getName());
             }
 
             if(!symbolTable.insert(variable)){
@@ -219,7 +332,7 @@ type_specifier: INT {
     ;
 
 declaration_list: declaration_list COMMA ID {
-        $$ = new SymbolInfo($1->getName()+","+$3->getName(), "declaration_list");
+        $$ = new SymbolInfo($1->getName()+","+$3->getName(), $3->getType());
         logFile << "Line " << line_count << ": declaration_list : declaration_list COMMA ID\n" << $$->getName() << endl;
     }
     | declaration_list COMMA ID LTHIRD CONST_INT RTHIRD {
@@ -227,7 +340,7 @@ declaration_list: declaration_list COMMA ID {
         logFile << "Line " << line_count << ": declaration_list : declaration_list COMMA ID LTHIRD CONST_INT RTHIRD\n" << $$->getName() << endl;
     }
     | ID    {
-        $$ = new SymbolInfo($1->getName(), "ID");
+        $$ = new SymbolInfo($1->getName(), $1->getType());
         logFile << "Line " << line_count << ": declaration_list : ID\n" << $1->getName() << endl;
     }
     | ID LTHIRD CONST_INT RTHIRD    {
@@ -237,7 +350,7 @@ declaration_list: declaration_list COMMA ID {
     ;
 
 statements: statement   {
-        $$ = new SymbolInfo($1->getName(), "statements");
+        $$ = $1;
         logFile << "Line " << line_count << ": statements : statement\n" << $$->getName() << endl;
     }
     | statements statement  {
@@ -279,7 +392,7 @@ statement: var_declaration  {
         logFile << "Line " << line_count << ": statement : PRINTLN LPAREN ID RPAREN SEMICOLON\n" << $$->getName() << endl;
     }
     | RETURN expression SEMICOLON   {
-        $$ = new SymbolInfo("return "+$2->getName() + ";", "statement");
+        $$ = new SymbolInfo("return "+$2->getName() + ";", $2->getType());
         logFile << "Line " << line_count << ": statement : RETURN expression SEMICOLON\n" << $$->getName() << endl;
     }
     ;
@@ -315,7 +428,7 @@ variable: ID    {
                 logFile << $1->getName() << endl;
             }
         }else{
-            type = var->getType();
+            type = var->getDataType();
             logFile << "Line " << line_count << ": variable : ID\n" << $1->getName() << endl;
         }
 
@@ -340,6 +453,7 @@ variable: ID    {
                 logFile << $$->getName() << endl;
                 $$->setType("error");
             }else{
+                $$->setDataType($1->getDataType());
                 logFile << "Line " << line_count << ": variable : ID LTHIRD expression RTHIRD\n" << $$->getName() << endl;
             }
         } 
@@ -359,10 +473,10 @@ expression: logic_expression    {
         if(var == NULL){
             logFile << "Line " << line_count << ": expression : variable ASSIGNOP logic_expression\n" << $$->getName() << endl;
         }else{
-            string varType = var->getType();
-            string valType = $3->getType();
+            string varType = var->getDataType();
+            string valType = $3->getDataType();
 
-            if((varType=="int" && valType=="CONST_INT") || (varType=="float" && valType=="CONST_FLOAT")){
+            if((varType=="int" && (valType=="CONST_INT" || valType=="int")) || (varType=="float" && (valType=="CONST_FLOAT" || valType=="float"))){
                 logFile << "Line " << line_count << ": expression : variable ASSIGNOP logic_expression\n" << $$->getName() << endl;
             }else if(valType == "error"){
                 $$->setType("error");
@@ -384,7 +498,7 @@ logic_expression: rel_expression    {
         logFile << "Line " << line_count << ": logic_expression : rel_expression\n" << $$->getName() << endl;
     }
     | rel_expression LOGICOP rel_expression {
-        $$ = new SymbolInfo($1->getName()+yylval.si->getName()+$3->getName(), "logic_expression");
+        $$ = new SymbolInfo($1->getName()+$2->getName()+$3->getName(), "logic_expression");
         logFile << "Line " << line_count << ": logic_expression : rel_expression LOGICOP rel_expression\n" << $$->getName() << endl;
     }
     ;
@@ -394,7 +508,7 @@ rel_expression: simple_expression   {
         logFile << "Line " << line_count << ": rel_expression : simple_expression\n" << $$->getName() << endl;
     }
     | simple_expression RELOP simple_expression {
-        $$ = new SymbolInfo($1->getName()+yylval.si->getName()+$3->getName(), "rel_expression");
+        $$ = new SymbolInfo($1->getName()+$2->getName()+$3->getName(), "rel_expression");
         logFile << "Line " << line_count << ": rel_expression : simple_expression RELOP simple_expression\n" << $$->getName() << endl;
     }
     ;
@@ -404,7 +518,9 @@ simple_expression: term {
         logFile << "Line " << line_count << ": simple_expression : term\n" << $$->getName() << endl;
     }
     | simple_expression ADDOP term  {
-        $$ = new SymbolInfo($1->getName()+$2->getName()+$3->getName(), "simple_expression");
+        string type = "int";
+        if(($1->getDataType()=="float" || $1->getDataType()=="CONST_FLOAT") || ($3->getDataType()=="float" || $3->getDataType()=="CONST_FLOAT")) type="float";
+        $$ = new SymbolInfo($1->getName()+$2->getName()+$3->getName(), type);
         logFile << "Line " << line_count << ": simple_expression : simple_expression ADDOP term\n" << $$->getName() << endl;
     }
     ;
