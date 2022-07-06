@@ -86,21 +86,19 @@ SymbolInfo* SymbolTable::lookup(string name){
     }
 
     SymbolInfo* res = NULL;
+    ScopeTable* tempCurr = this->curr;
     while(true){
-        SymbolInfo* temp = this->curr->lookup(name);
+        SymbolInfo* temp = tempCurr->lookup(name);
         if(temp != NULL){
             res = temp;
             break;
         }
-        if(this->curr->getParentScope() == NULL){
+        if(tempCurr->getParentScope() == NULL){
             res = NULL;
             break;
         }
-        this->curr = this->curr->getParentScope();
-    }
-
-    if(res == NULL){
         
+        tempCurr = tempCurr->getParentScope();
     }
 
     return res;
@@ -111,7 +109,7 @@ void SymbolTable::printCurrentScopeTable(){
         return;
     }
 
-    //this->curr->print();
+    //this->curr->print(logFile);
 }
 
 void SymbolTable::printAllScopeTables(fstream& logFile){
