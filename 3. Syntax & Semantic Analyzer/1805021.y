@@ -196,7 +196,7 @@ func_definition: type_specifier ID LPAREN parameter_list RPAREN {
                     symbolTable.remove(name);
                     SymbolInfo* f = new SymbolInfo(name, $2->getType());
                     f->setDataType("function");
-                    f->setParams(var->getParams());
+                    f->setParams(declaredParams);
                     f->setFunctionDefined(true);
                     f->setFunctionReturnType($1->getName());
                     symbolTable.insert(f);
@@ -533,18 +533,18 @@ term: unary_expression  {
         string type = "int";
         if(($1->getDataType()=="float" || $1->getDataType()=="CONST_FLOAT") || ($3->getDataType()=="float" || $3->getDataType()=="CONST_FLOAT")) type="float";
 
-        $$ = new SymbolInfo($1->getName()+$2->getName()+$3->getName(), type);
-
         if(($2->getName() == "%") && (($1->getType() != "CONST_INT") || ($3->getType() != "CONST_INT"))){
             error_count++;
-            $$->setType("error");
+            type = "error";
             errorFile << "Error at line " << line_count << ": Non-Integer operand on modulus operator" << endl;
             logFile << "Line " << line_count << ": term : term MULOP unary_expression\n";
             logFile << "Error at line " << line_count << ": Non-Integer operand on modulus operator" << endl;
-            logFile << $$->getName() << endl;
         }else{
-            logFile << "Line " << line_count << ": term : term MULOP unary_expression\n" << $$->getName() << endl;
+            logFile << "Line " << line_count << ": term : term MULOP unary_expression\n";
         }
+
+        $$ = new SymbolInfo($1->getName()+$2->getName()+$3->getName(), type);
+        logFile << $$->getName() << endl;
     }
     ;
 
@@ -567,8 +567,59 @@ factor: variable    {
         logFile << "Line " << line_count << ": factor : variable\n" << $$->getName() << endl;
     }
     | ID LPAREN argument_list RPAREN    { 
-        $$ = new SymbolInfo($1->getName()+"("+$3->getName()+")", "factor");
-        logFile << "Line " << line_count << ": factor : ID LPAREN argument_list RPAREN\n" << $$->getName() << endl;
+        string type = $1->getType();
+        string functionName = $1->getName();
+        SymbolInfo* function = symbolTable.lookup(functionName);
+
+        if(function == NULL){
+            error_count++;
+            type = "error";
+            errorFile << "Error at line " << line_count << ": Undeclared function " << functionName << endl;
+            logFile << "Line " << line_count << ": factor : ID LPAREN argument_list RPAREN\n";
+            logFile << "Error at line " << line_count << ": Undeclated function " << functionName << endl;
+        }else if(function->getDataType() != "function"){
+            error_count++;
+            type = "error";
+            errorFile << "Error at line " << line_count << ": Variable not a function " << functionName << endl;
+            logFile << "Line " << line_count << ": factor : ID LPAREN argument_list RPAREN\n";
+            logFile << "Error at line " << line_count << ": Variable not a function " << functionName << endl;
+        }else{
+            vector<string> params = function->getParams();
+            vector<string> args = splitString($3->getType(), ',');
+
+            if(params.size() != args.size()){
+                error_count++;
+                type = "error";
+                errorFile << "Error at line " << line_count << ": Total number of arguments mismatch with declaration in function " << functionName << endl;
+                logFile << "Line " << line_count << ": factor : ID LPAREN argument_list RPAREN\n";
+                logFile << "Error at line " << line_count << ": Total number of arguments mismatch with declaration in function " << functionName << endl;
+            }else if(function->getFunctionReturnType() == "void"){
+                error_count++;
+                type = "error";
+                errorFile << "Error at line " << line_count << ": Function returning void used " << functionName << endl;
+                logFile << "Line " << line_count << ": factor : ID LPAREN argument_list RPAREN\n";
+                logFile << "Error at line " << line_count << ": Function returning void used " << functionName << endl;
+            }else{
+                for(int i = 0; i < params.size(); i++){
+                    string paramType = splitString(params[i], ' ')[0];
+                    string argType = splitString(args[i], ' ')[0];
+
+                    if((paramType=="int" && (argType=="int" || argType=="CONST_INT")) || (paramType=="float" && (argType=="float" || argType=="CONST_FLOAT"))){
+
+                    }else if(paramType != argType){
+                        error_count++;
+                        type = "error";
+                        errorFile << "Error at line " << line_count << ": Function argument type mismatch " << functionName << endl;
+                        logFile << "Line " << line_count << ": factor : ID LPAREN argument_list RPAREN\n";
+                        logFile << "Error at line " << line_count << ": Function argument type mismatch " << functionName << endl;
+                    }
+                }
+                type = function->getFunctionReturnType();
+            }
+        }
+
+        $$ = new SymbolInfo($1->getName()+"("+$3->getName()+")", type);
+        logFile << $$->getName() << endl;
     }
     | LPAREN expression RPAREN  {
         $$ = new SymbolInfo("("+$2->getName()+")", $2->getType());
@@ -584,10 +635,12 @@ factor: variable    {
     }
     | variable INCOP    {
         $$ = new SymbolInfo($1->getName()+"++", $1->getType());
+        $$->setDataType($1->getDataType());
         logFile << "Line " << line_count << ": factor : variable INCOP\n" << $$->getName() << endl;
     }
     | variable DECOP    {
         $$ = new SymbolInfo($1->getName()+"--", $1->getType());
+        $$->setDataType($1->getDataType());
         logFile << "Line " << line_count << ": factor : variable DECOP\n" << $$->getName() << endl;
     }
     ;
