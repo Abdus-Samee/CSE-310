@@ -476,10 +476,10 @@ expression: logic_expression    {
             string varType = var->getDataType();
             string valType = $3->getDataType();
 
-            if((varType=="int" && (valType=="CONST_INT" || valType=="int")) || (varType=="float" && (valType=="CONST_FLOAT" || valType=="float"))){
-                logFile << "Line " << line_count << ": expression : variable ASSIGNOP logic_expression\n" << $$->getName() << endl;
-            }else if(valType == "error"){
+            if($3->getType() == "error"){
                 $$->setType("error");
+                logFile << "Line " << line_count << ": expression : variable ASSIGNOP logic_expression\n" << $$->getName() << endl;
+            }else if((varType=="int" && (valType=="CONST_INT" || valType=="int")) || (varType=="float" && (valType=="CONST_FLOAT" || valType=="float"))){
                 logFile << "Line " << line_count << ": expression : variable ASSIGNOP logic_expression\n" << $$->getName() << endl;
             }else{
                 error_count++;
