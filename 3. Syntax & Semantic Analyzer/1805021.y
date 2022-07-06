@@ -7,7 +7,7 @@
  int line_count = 1;
  int error_count = 0;
 
- #define BUCKETS 7
+ #define BUCKETS 7 
 
  void yyerror(char *s){
      printf("%s\n",s);
@@ -498,7 +498,7 @@ logic_expression: rel_expression    {
         logFile << "Line " << line_count << ": logic_expression : rel_expression\n" << $$->getName() << endl;
     }
     | rel_expression LOGICOP rel_expression {
-        $$ = new SymbolInfo($1->getName()+$2->getName()+$3->getName(), "logic_expression");
+        $$ = new SymbolInfo($1->getName()+$2->getName()+$3->getName(), "int");
         logFile << "Line " << line_count << ": logic_expression : rel_expression LOGICOP rel_expression\n" << $$->getName() << endl;
     }
     ;
@@ -508,7 +508,7 @@ rel_expression: simple_expression   {
         logFile << "Line " << line_count << ": rel_expression : simple_expression\n" << $$->getName() << endl;
     }
     | simple_expression RELOP simple_expression {
-        $$ = new SymbolInfo($1->getName()+$2->getName()+$3->getName(), "rel_expression");
+        $$ = new SymbolInfo($1->getName()+$2->getName()+$3->getName(), "int");
         logFile << "Line " << line_count << ": rel_expression : simple_expression RELOP simple_expression\n" << $$->getName() << endl;
     }
     ;
@@ -530,7 +530,8 @@ term: unary_expression  {
         logFile << "Line " << line_count << ": term : unary_expression\n" << $$->getName() << endl;
     }
     | term MULOP unary_expression   {
-        string type = $3->getType();
+        string type = "int";
+        if(($1->getDataType()=="float" || $1->getDataType()=="CONST_FLOAT") || ($3->getDataType()=="float" || $3->getDataType()=="CONST_FLOAT")) type="float";
 
         $$ = new SymbolInfo($1->getName()+$2->getName()+$3->getName(), type);
 
