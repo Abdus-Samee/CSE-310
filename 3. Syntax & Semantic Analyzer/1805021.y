@@ -776,7 +776,7 @@ main(int argc, char* argv[], char* endp[])
     symbolTable.printAllScopeTables(logFile);
     logFile << endl;
     logFile << "Total lines: " << line_count << endl;
-    logFile << "TOtal errors: " << error_count << endl;
+    logFile << "Total errors: " << error_count << endl;
 
     logFile.close();
     errorFile.close();
