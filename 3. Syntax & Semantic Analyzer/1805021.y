@@ -409,6 +409,7 @@ var_declaration: type_specifier declaration_list SEMICOLON  {
                 }
 
                 if(!symbolTable.insert(variable)){
+                    if(isVarArray(s)) s = getArrayName(s);
                     error_count++;
                     errorFile << "Error at line " << line_count << ": Multiple declaration of " << s << endl;
                     logFile << "Line " << line_count << ": var_declaration : type_specifier declaration_list SEMICOLON\n";
@@ -597,32 +598,33 @@ expression: logic_expression    {
     }
     | variable ASSIGNOP logic_expression    {
         string type = $1->getType();
-        SymbolInfo* var = symbolTable.lookup($1->getName());
-        
-        $$ = new SymbolInfo($1->getName()+"="+$3->getName(), type);
 
-        if(var == NULL){
-            logFile << "Line " << line_count << ": expression : variable ASSIGNOP logic_expression\n" << $$->getName() << endl;
+        string varType = $1->getDataType();
+        string valType = $3->getDataType();
+
+        if(($1->getType()=="error") || ($3->getType()=="error")){
+            type = "error";
+            logFile << "Line " << line_count << ": expression : variable ASSIGNOP logic_expression\n";
+        }else if($3->getType() == "void_error"){
+            error_count++;
+            type = "error";
+            errorFile << "Error at line " << line_count << ": Void function used in expression\n";
+            logFile << "Line " << line_count << ": expression : variable ASSIGNOP logic_expression\n";
+            logFile << "Error at line " << line_count << ": Void function used in expression\n";
+        }else if(((varType=="int") && ((valType=="CONST_INT") || (valType=="int"))) || ((varType=="float") && ((valType=="CONST_FLOAT") || (valType=="float")))){
+            logFile << "Line " << line_count << ": expression : variable ASSIGNOP logic_expression\n";
+        }else if(((varType=="float") && ((valType=="CONST_INT")||(valType=="int")))){
+            logFile << "Line " << line_count << ": expression : variable ASSIGNOP logic_expression\n";
         }else{
-            string varType = var->getDataType();
-            string valType = $3->getDataType();
-
-            if($3->getType() == "error"){
-                $$->setType("error");
-                logFile << "Line " << line_count << ": expression : variable ASSIGNOP logic_expression\n" << $$->getName() << endl;
-            }else if((varType=="int" && (valType=="CONST_INT" || valType=="int")) || (varType=="float" && (valType=="CONST_FLOAT" || valType=="float"))){
-                logFile << "Line " << line_count << ": expression : variable ASSIGNOP logic_expression\n" << $$->getName() << endl;
-            }else if((varType=="float" && (valType=="CONST_INT"||valType=="int"))){
-                logFile << "Line " << line_count << ": expression : variable ASSIGNOP logic_expression\n" << $$->getName() << endl;
-            }else{
-                error_count++;
-                type = "error";
-                errorFile << "Error at line " << line_count << ": Type mismatch" << endl;
-                logFile << "Line " << line_count << ": expression : variable ASSIGNOP logic_expression\n";
-                logFile << "Error at line " << line_count << ": Type mismatch" << endl;
-                logFile << $$->getName() << endl;
-            }
+            error_count++;
+            type = "error";
+            errorFile << "Error at line " << line_count << ": Type mismatch\n";
+            logFile << "Line " << line_count << ": expression : variable ASSIGNOP logic_expression\n";
+            logFile << "Error at line " << line_count << ": Type mismatch\n";
         }
+
+        $$ = new SymbolInfo($1->getName()+"="+$3->getName(), type);
+        logFile << $$->getName() << endl;
     }
     ;
 
@@ -680,7 +682,7 @@ term: unary_expression  {
             logFile << "Line " << line_count << ": term : term MULOP unary_expression\n";
             logFile << "Error at line " << line_count << ": Modulus by zero\n";
         }
-        if($2->getType() == "void_error"){
+        if(($1->getType()=="void_error") || ($3->getType()=="void_error")){
             error_count++;
             type = "error";
             errorFile << "Error at line " << line_count << ": Void function used in expression\n";
@@ -718,9 +720,6 @@ factor: variable    {
     | ID LPAREN argument_list RPAREN    { 
         string type = $1->getType();
         string functionName = $1->getName();
-        //cout << "Function name: " << functionName << endl;
-        //logFile << "-------------------\nDEBUG CHECK\n-----------------\n";
-        //symbolTable.printAllScopeTables(logFile);
         SymbolInfo* function = symbolTable.lookup(functionName);
 
         if(function == NULL){
@@ -751,19 +750,23 @@ factor: variable    {
             
             if(type!="error"){
                 for(int i = 0; i < params.size(); i++){
+                    bool discrepancy = false;
                     string paramType = splitString(params[i], ' ')[0];
                     string argType = splitString(args[i], ' ')[0];
 
                     if((paramType=="int" && (argType=="int" || argType=="CONST_INT")) || (paramType=="float" && (argType=="float" || argType=="CONST_FLOAT"))){
 
-                    }else if($3->getType()=="error"){
+                    }else if(argType=="error"){
 
-                    }else if(paramType != argType){
-                        error_count++;
-                        if(type != "void_error") type = "error";
-                        errorFile << "Error at line " << line_count << ": Function argument type mismatch " << functionName << endl;
-                        logFile << "Line " << line_count << ": factor : ID LPAREN argument_list RPAREN\n";
-                        logFile << "Error at line " << line_count << ": Function argument type mismatch " << functionName << endl;
+                    }else if((paramType != argType) && (type!="error")){
+                        if(!discrepancy){
+                            discrepancy = true;
+                            error_count++;
+                            if(type != "void_error") type = "error";
+                            errorFile << "Error at line " << line_count << ": " << (i+1) << "th argument mismatch in function " << functionName << endl;
+                            logFile << "Line " << line_count << ": factor : ID LPAREN argument_list RPAREN\n";
+                            logFile << "Error at line " << line_count << ": " << (i+1) << "th argument mismatch in function " << functionName << endl;
+                        }
                     }
                 }
                 if((type != "error") && (type != "void_error")) type = function->getFunctionReturnType();
