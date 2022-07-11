@@ -4,20 +4,19 @@
  
  extern FILE *yyin;
 
+ #define BUCKETS 7
  int line_count = 1;
  int error_count = 0;
-
- #define BUCKETS 7 
+ fstream logFile;
+ fstream errorFile;
+ SymbolTable symbolTable(BUCKETS); 
 
  void yyerror(char *s){
-     printf("%s\n",s);
+    error_count++;
+    errorFile << "Error at line " << line_count << ": "<< s << endl;
  }
 
  int yylex(void);
-
- fstream logFile;
- fstream errorFile;
- SymbolTable symbolTable(BUCKETS);
 
  vector<string> splitString (string str, char seperator)  
  {  
@@ -369,6 +368,11 @@ parameter_list: parameter_list COMMA type_specifier ID  {
         $$ = new SymbolInfo($1->getName(), "parameter_list");
         logFile << "Line " << line_count << ": parameter_list: type_specifier\n" << $$->getName() << endl;
     }
+    | type_specifier error  {
+        yyclearin;
+        yyerrok;
+        $$ = new SymbolInfo("", "error");
+    }
     ;
 
 compound_statement: LCURL statements RCURL  {
@@ -421,6 +425,11 @@ var_declaration: type_specifier declaration_list SEMICOLON  {
 
         logFile << "Line " << line_count << ": var_declaration : type_specifier declaration_list SEMICOLON\n" << $$->getName() << endl;
     }
+    | error SEMICOLON   {
+        yyclearin;
+        yyerrok;
+        $$ = new SymbolInfo("", "error");
+    }
     ;
 
 type_specifier: INT { 
@@ -452,6 +461,10 @@ declaration_list: declaration_list COMMA ID {
     | ID LTHIRD CONST_INT RTHIRD    {
         $$ = new SymbolInfo($1->getName()+"["+$3->getName()+"]", "ID");
         logFile << "Line " << line_count << ": declaration_list : ID LTHIRD CONST_INT RTHIRD\n" << $$->getName() << endl;
+    }
+    |declaration_list error {
+        yyclearin;
+        $$ = new SymbolInfo("", "error");
     }
     ;
 
@@ -523,6 +536,10 @@ expression_statement: SEMICOLON {
     | expression SEMICOLON  {
         $$ = new SymbolInfo($1->getName()+";", "expression_statement");
         logFile << "Line " << line_count << ": expression_statement : expression SEMICOLON\n" << $$->getName() << endl;
+    }
+    | expression error  {
+        yyclearin;
+        $$ = new SymbolInfo("", "error");
     }
     ;
 
@@ -819,7 +836,6 @@ arguments: arguments COMMA logic_expression {
         logFile << "Line " << line_count << ": arguments : logic_expression\n" << $$->getName() << endl;
     }
     ;
-
 %%
 main(int argc, char* argv[], char* endp[])
 {
