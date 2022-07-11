@@ -25,6 +25,8 @@
 
  extern int line_count;
  extern int error_count;
+ extern fstream errorFile;
+ extern fstream logFile;
  
  int multi;
  string textChar;
@@ -92,7 +94,7 @@
 %}
 
 DIGIT [0-9]
-keyword "if"|"else"|"for"|"while"|"do"|"break"|"int"|"char"|"float"|"double"|"void"|"return"|"switch"|"case"|"default"|"continue"
+keyword "if"|"else"|"for"|"while"|"do"|"printf"|"break"|"int"|"char"|"float"|"double"|"void"|"return"|"switch"|"case"|"default"|"continue"
 special [t|n|a|b|f|v|r|\|'|0]
 
 %%
@@ -106,6 +108,7 @@ special [t|n|a|b|f|v|r|\|'|0]
    else if(s == "FLOAT") return FLOAT;
    else if(s == "VOID") return VOID;
    else if(s == "RETURN") return RETURN;
+   else if(s == "PRINTF") return PRINTLN;
 }
 
 {DIGIT}+ {
@@ -431,6 +434,8 @@ special [t|n|a|b|f|v|r|\|'|0]
 
 . {
    error_count++;
+   errorFile << "Error at line " << line_count << ": Unrecognized character " << yytext << " " << endl;
+   logFile << "Error at line " << line_count << ": Unrecognized character " << yytext << " " << endl;
 }
 
 %%
