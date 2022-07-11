@@ -173,27 +173,39 @@ func_definition: type_specifier ID LPAREN parameter_list RPAREN {
             var->setFunctionReturnType($1->getName());
             symbolTable.insert(var);
             symbolTable.enterScope();
-            for(string p : paramList){
-                vector<string> variable = splitString(p, ' ');
-                string varType = variable[0];
-                string varName = variable[1];
-                SymbolInfo* temp;
-                if(isVarArray(varName)){
-                    string name = getArrayName(varName);
-                    string len = getArrayLength(varName);
-                    temp = new SymbolInfo(name, "ID");
-                    temp->setArrayLength(len);
-                    temp->setDataType(varType);
-                }else{
-                    temp = new SymbolInfo(varName, "ID");
-                    temp->setDataType(varType);
-                }
+            bool discrepancy = false;
+            for(int i = 0; i < paramList.size(); i++){
+                vector<string> variable = splitString(paramList[i], ' ');
+                string varType = "";
+                string varName = "";
+                if(variable.size() == 2){
+                    varType = variable[0];
+                    varName = variable[1];
+                    SymbolInfo* temp;
+                    if(isVarArray(varName)){
+                        string name = getArrayName(varName);
+                        string len = getArrayLength(varName);
+                        temp = new SymbolInfo(name, "ID");
+                        temp->setArrayLength(len);
+                        temp->setDataType(varType);
+                    }else{
+                        temp = new SymbolInfo(varName, "ID");
+                        temp->setDataType(varType);
+                    }
 
-                if(!symbolTable.insert(temp)){
-                    error_count++;
-                    errorFile << "Error at line " << line_count << ": Multiple declaration of " << varName << " in parameter" << endl;
-                    logFile << "Line " << line_count << ": func_definition: type_specifier ID LPAREN parameter_list RPAREN\n";
-                    logFile << "Error at line " << line_count << ": Multiple declaration of " << varName << " in parameter" << endl;
+                    if(!symbolTable.insert(temp)){
+                        error_count++;
+                        errorFile << "Error at line " << line_count << ": Multiple declaration of " << varName << " in parameter" << endl;
+                        logFile << "Line " << line_count << ": func_definition: type_specifier ID LPAREN parameter_list RPAREN\n";
+                        logFile << "Error at line " << line_count << ": Multiple declaration of " << varName << " in parameter" << endl;
+                    }
+                }else{
+                    if(!discrepancy){
+                        error_count++;
+                        discrepancy = true;
+                        errorFile << "Error at line " << line_count << ": " << (i+1) << "th parameter's name not given in function definition of " <<  name << endl;
+                        logFile << "Error at line " << line_count << ": " << (i+1) << "th parameter's name not given in function definition of " <<  name << endl;
+                    }
                 }
             }
             //logFile << "Line " << line_count << ": func_declaration: type_specifier ID LPAREN parameter_list RPAREN SEMICOLON\n" << $$->getName() << endl;
@@ -371,8 +383,10 @@ parameter_list: parameter_list COMMA type_specifier ID  {
     | type_specifier error  {
         yyclearin;
         yyerrok;
-        $$ = new SymbolInfo("", "error");
-    }
+        $$ = new SymbolInfo($1->getName(), "error");
+        logFile << "Line " << line_count << ": parameter_list: type_specifier\n" << $$->getName() << endl;
+        logFile << "Error at line " << line_count << ": syntax error\n" << $$->getName() << endl;
+    } 
     ;
 
 compound_statement: LCURL statements RCURL  {
@@ -464,7 +478,8 @@ declaration_list: declaration_list COMMA ID {
     }
     |declaration_list error {
         yyclearin;
-        $$ = new SymbolInfo("", "error");
+        $$ = new SymbolInfo($1->getName(), "error");
+        logFile << $1->getName() << endl;
     }
     ;
 
