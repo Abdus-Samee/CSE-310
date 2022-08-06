@@ -586,35 +586,138 @@ statements: statement   {
 statement: var_declaration  {
         $$ = new SymbolInfo($1->getName(), "statement");
         logFile << "Line " << line_count << ": statement : var_declaration\n" << $$->getName() << endl;
+
+        $$->asmText = $1->asmText;
+        $$->offset = $1->offset;
+        $$->tempVar = $1->tempVar;
+        $$->asmCode = $1->asmCode;
     }
     | expression_statement  {
         $$ = new SymbolInfo($1->getName(), "statement");
         logFile << "Line " << line_count << ": statement : expression_statement\n" << $$->getName() << endl;
+
+        $$->asmText = $1->asmText;
+        $$->offset = $1->offset;
+        $$->tempVar = $1->tempVar;
+        $$->asmCode = "; " + $$->asmText + "\n" + $1->asmCode;
     }
     | {
         symbolTable.enterScope();
     }compound_statement    {
         $$ = new SymbolInfo($2->getName(), "statement");
         logFile << "Line " << line_count << ": statement : compound_statement\n" << $$->getName() << endl;
+
+        $$->asmText = $2->asmText;
+        $$->offset = $2->offset;
+        $$->tempVar = $2->tempVar;
+        $$->asmCode = $2->asmCode;
     }
     | FOR LPAREN expression_statement expression_statement expression RPAREN statement  {
         $$ = new SymbolInfo("for("+$3->getName()+" "+$4->getName()+" "+$5->getName()+") "+$7->getName(), "statement");
         logFile << "Line " << line_count << ": statement : FOR LPAREN expression_statement expression_statement expression RPAREN statement\n" << $$->getName() << endl;
+
+        $$->asmText = "for(" + $3->asmText + " " + $4->asmText + " " + $5->asmText + ") " + $7->asmText;
+        string t1 = newLabel();
+        string t2 = newLabel();
+
+        string to_print = $$->asmText;
+        to_print.erase(remove(to_print.begin(), to_print.end(), '\n'), to_print.end());
+
+        $$->asmCode = "; " + to_print + "\n";
+
+        $$->asmCode += $3->asmCode + "\n";
+
+        $$->asmCode += t1 + ":\n"; // loop starting label
+
+        $$->asmCode += "; " + $4->asmText + "\n";
+        $$->asmCode += $4->asmCode + "\n"; // eval expression
+
+        $$->asmCode += "; check for loop condition\n";
+        $$->asmCode += "CMP " + stk_address($4->offset) + ", 0\n"; // check if need to exit
+        $$->asmCode += "JE " + t2 + "\n"; // check if need to exit
+
+        $$->asmCode += $7->asmCode + "\n";  // exec statement
+
+        $$->asmCode += "; " + $5->asmText + "\n";  // exec statement
+        $$->asmCode += $5->asmCode + "\n";  // exec statement
+
+        $$->asmCode += "JMP " + t1 + "\n"; // loop
+        $$->asmCode += t2 + ":\n"; // loop ending label
     }
     | IF LPAREN expression RPAREN statement    %prec LOWER_THAN_ELSE   {
         $$ = new SymbolInfo("if("+$3->getName()+") "+$5->getName(), "statement");
         logFile << "Line " << line_count << ": statement : IF LPAREN expression RPAREN expression\n" << $$->getName() << endl;
+
+        $$->asmText = "if(" + $3->asmText + ") " + $5->asmText;
+        string to_print = $$->asmText;
+        to_print.erase(remove(to_print.begin(), to_print.end(), '\n'), to_print.end());
+
+        $$->asmCode = "; " + to_print + "\n";
+
+        $$->asmCode += $3->asmCode + "\n";
+        
+        string t1 = newLabel();
+        $$->asmCode += "CMP " + stk_address($3->offset) + ", 0\n";
+        $$->asmCode += "JE " + t1 + "\n";
+        $$->asmCode += $5->asmCode + "\n";
+        $$->asmCode += t1 + ":\n";
     }
     | IF LPAREN expression RPAREN statement ELSE statement {
         $$ = new SymbolInfo("if("+$3->getName()+") "+$5->getName()+" else "+$7->getName(), "statement");
         logFile << "Line " << line_count << ": statement : IF LPAREN expression RPAREN expression ELSE statement\n" << $$->getName() << endl;
+
+        $$->asmText = "if(" + $3->asmText + ") " + $5->asmText + " else " + $7->asmText;
+        string to_print = $$->asmText;
+        to_print.erase(remove(to_print.begin(), to_print.end(), '\n'), to_print.end());
+
+        $$->asmCode = "; " + to_print + "\n";
+
+        $$->asmCode += $3->asmCode + "\n";
+        
+        string t1 = newLabel();
+        string t2 = newLabel();
+
+        $$->asmCode += "CMP " + stk_address($3->offset) + ", 0\n";
+        $$->asmCode += "JE " + t1 + "\n";
+
+        $$->asmCode += $5->asmCode + "\n";
+        $$->asmCode += "JMP " + t2 + "\n";
+        $$->asmCode += t1 + ":\n";
+
+        $$->asmCode += $7->asmCode + "\n";
+        $$->asmCode += t2 + ":\n";
     }
     | WHILE LPAREN expression RPAREN statement  {
         $$ = new SymbolInfo("while("+$3->getName()+") "+$5->getName(), "statement");
         logFile << "Line " << line_count << ": statement : WHILE LPAREN expression RPAREN statement\n" << $$->getName() << endl;
+
+        $$->asmText = "while(" + $3->asmText() + ") " + $5->asmText();
+        string t1 = newLabel();
+        string t2 = newLabel();
+
+        string to_print = $$->asmText;
+        to_print.erase(remove(to_print.begin(), to_print.end(), '\n'), to_print.end());
+
+        $$->asmCode = "; " + to_print + "\n";
+
+        $$->asmCode += t1 + ":\n"; // loop starting label
+
+        $$->asmCode += "; " + $3->asmText + "\n";
+        $$->asmCode += $3->asmCode + "\n"; // eval expression
+
+        $$->asmCode += "; check while loop condition\n";
+        $$->asmCode += "CMP " + stk_address($3->offset) + ", 0\n"; // check if need to exit
+        $$->asmCode += "JE " + t2 + "\n"; // check if need to exit
+
+        $$->asmCode += $5->asmCode + "\n";  // exec statement
+
+        $$->asmCode += "JMP " + t1 + "\n"; // loop
+        $$->asmCode += t2 + ":\n"; // loop ending label
     }
     | PRINTLN LPAREN ID RPAREN SEMICOLON    {
         $$ = new SymbolInfo("printf("+$3->getName()+")", "statement");
+        $$->asmText = "printf(" + $3->getName() + ");";
+        $$->asmCode = "\n; " + $$->asmText + "\n";
 
         SymbolInfo* var  = symbolTable.lookup($3->getName());
         if(var == NULL){
@@ -627,10 +730,27 @@ statement: var_declaration  {
         }
 
         logFile << $$->getName() << endl;
+            
+        if(var != NULL && var->offset != "") $$->asmCode += "MOV AX, " + stk_address(var->offset) + "\n";
+        else $$->asmCode += "MOV AX, " + $3->getName() + "\n";
+        
+        $$->asmCode += "MOV FOR_PRINT, AX\n";
+        $$->asmCode += "CALL OUTPUT";
     }
     | RETURN expression SEMICOLON   {
         $$ = new SymbolInfo("return "+$2->getName() + ";", $2->getType());
         logFile << "Line " << line_count << ": statement : RETURN expression SEMICOLON\n" << $$->getName() << endl;
+
+        $$->asmText = "return " + $1->asmText + ";";
+        $$->asmCode = "; " + $$->asmText + "\n";
+        $$->asmCode += $2->asmCode + "\n";
+
+        if($2->offset != "") $$->asmCode += "MOV AX, " + stk_address($2->offset) + "\n";
+        else{
+            $$->asmCode += "MOV AX, " + process_global_variable($2->asmText) + "\n";
+        } 
+
+        $$->asmCode += "JMP " + cur_function_label(cur_function_name)+"\n";
     }
     ;
 
