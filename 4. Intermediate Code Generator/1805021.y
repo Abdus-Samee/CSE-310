@@ -5,20 +5,20 @@
  extern FILE *yyin;
 
  #define BUCKETS 7
+
  int line_count = 1;
  int error_count = 0;
  int tempCount = 0;
  int labelCount = 0;
+ int sp = 0;
+ int labelCount=0;
+ int tempCount=0;
 
  fstream logFile;
  fstream errorFile;
  fstream asmFile;
  fstream optimizedFile;
-
  SymbolTable symbolTable(BUCKETS);
- int sp = 0;
- int labelCount=0;
- int tempCount=0;
  vector<string> dataVars;
  vector<string> temp_SP_vector;
 
@@ -636,11 +636,17 @@ statement: var_declaration  {
 
 expression_statement: SEMICOLON {
         $$ = new SymbolInfo(";", "expression_statement");
+        $$->asmText = ";";
         logFile << "Line " << line_count << ": expression_statement : SEMICOLON\n;\n";
     }
     | expression SEMICOLON  {
         $$ = new SymbolInfo($1->getName()+";", "expression_statement");
         logFile << "Line " << line_count << ": expression_statement : expression SEMICOLON\n" << $$->getName() << endl;
+
+        $$->asmText = $1->asmText + ";";
+        $$->asmCode = $1->asmCode;
+        $$->offset = $1->offset;
+        $$->tempVar = $1->tempVar;
     }
     | expression error  {
         yyclearin;
@@ -651,6 +657,8 @@ expression_statement: SEMICOLON {
 variable: ID    {
         string type = $1->getType();
         SymbolInfo* var = symbolTable.lookup($1->getName());
+
+        $$->asmText = $1->getName();
 
         if(var == NULL){
             error_count++;
@@ -676,10 +684,15 @@ variable: ID    {
         }
 
         $$ = new SymbolInfo($1->getName(), type);
+        $$->tempVar = $1->getName();
+
+        if(var != NULL) $$->offset = var->offset;
     }
     | ID LTHIRD expression RTHIRD   { 
         string type = $1->getType();
         SymbolInfo* var = symbolTable.lookup($1->getName());
+
+        $$->asmText = $1->getName() + "[" + $3->asmText + "]";
 
         if(var == NULL){
             error_count++;
@@ -711,6 +724,19 @@ variable: ID    {
 
         $$ = new SymbolInfo($1->getName()+"["+$3->getName()+"]", type);
         logFile << $$->getName() << endl;
+
+        if(var != NULL){
+            $$->asmCode = $3->asmCode = "\n";
+
+            if(var->stk_offset!=""){
+                $$->asmCode += "MOV SI, " + stk_address($3->offset) + "\n";
+                $$->asmCode += "ADD SI, SI";
+                $$->offset = var->offset + " + SI";
+            }else{
+                $$->asmCode += "MOV BX, " + stk_address($3->offset) + "\n";
+                $$->asmCode += "ADD BX, BX";
+            }
+        }
     }
     ;
 
