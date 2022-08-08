@@ -378,6 +378,30 @@ func_definition: type_specifier ID LPAREN parameter_list RPAREN {
     compound_statement  {
         $$ = new SymbolInfo($1->getName()+" "+$2->getName()+"("+$4->getName()+")"+$7->getName(), "func_definition");
         logFile << "Line " << line_count << ": func_definition: type_specifier ID LPAREN parameter_list RPAREN compound_statement\n" << $$->getName() << endl;
+
+        $$->asmText = $1->asmText + " " + $2->getName() + "(" + $4->asmText + ")" + $7->asmText;
+        $$->asmCode = $2->getName() + " PROC\n";
+        
+        if($2->getName() == "main") $$->asmCode += "MOV AX, @DATA\nMOV DS, AX\n";
+
+        $$->asmCode += "PUSH BP\nMOV BP,SP\n";
+        $$->asmCode += "SUB SP, " + to_string(sp) + "\n";
+
+        $$->asmCode += $4->asmCode + "\n";
+        $$->asmCode += $7->asmCode + "\n";
+        $$->asmCode += "L_" + $2->getName() + ":\n";
+        $$->asmCode += "ADD SP, " + to_string(sp) + "\n";
+        $$->asmCode += "POP BP\n";
+
+        if($2->getName() == "main"){
+            $$->asmCode += "\n;DOS EXIT\nMOV AH, 4CH\nINT 21H\n";
+        }else {
+            $$->asmCode += "RET\n";
+        }
+
+        $$->asmCode += $2->getName() + " ENDP\n\n";
+
+        if($2->getName() == "main") $$->asmCode += "END MAIN\n";
     }
     | type_specifier ID LPAREN RPAREN   { 
         string type = "func_definition";
@@ -440,20 +464,53 @@ func_definition: type_specifier ID LPAREN parameter_list RPAREN {
     compound_statement  {
         $$ = new SymbolInfo($1->getName()+" "+$2->getName()+"()"+$6->getName(), "func_definition");
         logFile << "Line " << line_count << ": func_definition: type_specifier ID LPAREN RPAREN compound_statement\n" << $$->getName() << endl;
+
+        $$->asmText = $1->asmText + " " + $2->getName() + "()" + $6->asmText;
+        $$->asmCode = $2->getName() + " PROC\n";
+
+        if($2->getName() == "main"){
+            $$->asmCode += "MOV AX, @DATA\nMOV DS, AX\n";
+        }
+
+        $$->asmCode += "PUSH BP\nMOV BP, SP\n";
+        $$->asmCode += "SUB SP, " + to_string(sp) + "\n";
+
+        $$->asmCode += $6->asmCode + "\n";
+
+        $$->asmCode += "L_" + $2->getName() + ":\n";
+        $$->asmCode += "ADD SP, " + to_string(sp) + "\n";
+        $$->asmCode += "POP BP\n";
+
+        if($2->getName() == "main"){
+            $$->asmCode += "\n;DOS EXIT\nMOV AH, 4CH\nINT 21H\n";
+        }else{
+            $$->asmCode += "RET\n";
+        }
+        
+
+        $$->asmCode += $2->getName() + " ENDP\n";
+
+        if($2->getName() == "main") $$->asmCode += "END MAIN\n";
     }
     ;
 
 parameter_list: parameter_list COMMA type_specifier ID  {
         $$ = new SymbolInfo($1->getName()+","+$3->getName()+" "+$4->getName(), "parameter_list");
         logFile << "Line " << line_count << ": parameter_list: parameter_list COMMA type_specifier ID\n" << $$->getName() << endl;
+
+        $$->asmText = $1->asmText + "," + $3->asmText + " " + $4->getName();
     }
     | parameter_list COMMA type_specifier   {
         $$ = new SymbolInfo($1->getName()+","+$3->getName(), "parameter_list");
         logFile << "Line " << line_count << ": parameter_list: parameter_list COMMA type_specifier\n" << $$->getName() << endl;
+
+        $$->asmText = $1->asmText + "," + $3->getName();
     }
     | type_specifier ID {
         $$ = new SymbolInfo($1->getName()+" "+$2->getName(), "parameter_list");
         logFile << "Line " << line_count << ": parameter_list: type_specifier ID\n" << $$->getName() << endl;
+
+        $$->asmText = $1->asmText + " " + $3->getName();
     }
     | type_specifier    {
         $$ = $1;
@@ -485,14 +542,14 @@ compound_statement: LCURL statements RCURL  {
 var_declaration: type_specifier declaration_list SEMICOLON  {
         $$ = new SymbolInfo($1->getName()+" "+$2->getName()+";", "var_declaration");
         vector<string> splitted = splitString($2->getName(), ',');
+
+        $$->asmText = $1->asmText + " " + $2->asmText + ";";
         
         if($1->getName() == "void"){
             error_count++;
             errorFile << "Error at line " << line_count << ": Variable type cannot be void\n";
             logFile << "Line " << line_count << ": var_declaration : type_specifier declaration_list SEMICOLON\n";
         }else{
-            int offset = 0;
-            int width = 4;
             for(string s : splitted){
                 SymbolInfo* variable;
 
@@ -504,15 +561,23 @@ var_declaration: type_specifier declaration_list SEMICOLON  {
                     variable->setDataType($1->getName());
 
                     if(symbolTable.getCurrentTableID() == "1"){
-
+                        dataVars.push_back(name + " DW " + len + " DUP ($)");
                     }else{
-
+                        int num = stoi(len);
+                        incrementSP(num);
+                        variable->offset = to_string(sp);
                     }
                 }else{
                     variable = new SymbolInfo(s, $2->getType());
                     variable->setDataType($1->getName());
-                    variable->setOffset(offset);
-                    offset += width;
+
+                    if(symbolTable.getCurrentTableID() == "1"){
+                        dataVars.push_back(name + " DW ?");
+                    }else{
+                        int num = stoi(len);
+                        incrementSP(num);
+                        variable->offset = to_string(sp);
+                    }
                 }
 
                 if(!symbolTable.insert(variable)){
@@ -537,14 +602,17 @@ var_declaration: type_specifier declaration_list SEMICOLON  {
 
 type_specifier: INT { 
         $$ = new SymbolInfo("int", "int");
+        $$->asmText = $1->getName();
         logFile << "Line " << line_count << ": type_specifier : INT\nint\n"; 
     }
     | FLOAT { 
         $$ = new SymbolInfo("float", "float");
+        $$->asmText = $1->getName();
         logFile << "Line " << line_count << ": type_specifier : FLOAT\nfloat\n"; 
     }
     | VOID  { 
         $$ = new SymbolInfo("void", "void");
+        $$->asmText = $1->getName();
         logFile << "Line " << line_count << ": type_specifier : VOID\nvoid\n"; 
     }
     ;
@@ -552,18 +620,26 @@ type_specifier: INT {
 declaration_list: declaration_list COMMA ID {
         $$ = new SymbolInfo($1->getName()+","+$3->getName(), $3->getType());
         logFile << "Line " << line_count << ": declaration_list : declaration_list COMMA ID\n" << $$->getName() << endl;
+
+        $$->asmText = $1->asmText + "," + $3->getName();
     }
     | declaration_list COMMA ID LTHIRD CONST_INT RTHIRD {
         $$ = new SymbolInfo($1->getName()+","+$3->getName()+"["+$5->getName()+"]", "declaration_list");
         logFile << "Line " << line_count << ": declaration_list : declaration_list COMMA ID LTHIRD CONST_INT RTHIRD\n" << $$->getName() << endl;
+
+        $$->asmText = $1->asmText + "," + $3->getName() + "[" + $5->getName() + "]";
     }
     | ID    {
         $$ = new SymbolInfo($1->getName(), $1->getType());
         logFile << "Line " << line_count << ": declaration_list : ID\n" << $1->getName() << endl;
+
+        $$->asmText = $1->getName();
     }
     | ID LTHIRD CONST_INT RTHIRD    {
         $$ = new SymbolInfo($1->getName()+"["+$3->getName()+"]", "ID");
         logFile << "Line " << line_count << ": declaration_list : ID LTHIRD CONST_INT RTHIRD\n" << $$->getName() << endl;
+
+        $$->asmText = $1->getName() + "[" + $3->getName() + "]";
     }
     |declaration_list error {
         yyclearin;
@@ -578,8 +654,9 @@ statements: statement   {
     }
     | statements statement  {
         $$ = new SymbolInfo($1->getName()+"\n"+$2->getName(), "statements");
-        $$->setAsmCode($1->getAsmCode() + $2->getAsmCode);
         logFile << "Line " << line_count << ": statements : statements statement\n" << $$->getName() << endl;
+        $$->asmText = $1->asmText + "\n" + $2->asmText;
+        $$->asmCode = $1->asmCode + "\n" + $2->asmCode;
     }
     ;
 
