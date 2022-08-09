@@ -982,8 +982,6 @@ variable: ID    {
         string type = $1->getType();
         SymbolInfo* var = symbolTable.lookup($1->getName());
 
-        $$->asmText = $1->getName();
-
         if(var == NULL){
             error_count++;
             type = "error";
@@ -1009,6 +1007,7 @@ variable: ID    {
 
         $$ = new SymbolInfo($1->getName(), type);
         $$->tempVar = $1->getName();
+        $$->asmText = $1->getName();
 
         if(var != NULL) $$->offset = var->offset;
     }
@@ -1098,6 +1097,7 @@ expression: logic_expression    {
         $$ = new SymbolInfo($1->getName()+"="+$3->getName(), type);
         logFile << $$->getName() << endl;
 
+        $$->asmText = $1->asmText + "=" + $3->asmText;
         $$->asmCode = $3->asmCode + "\n";
 
         if($3->offset != "") $$->asmCode += "MOV CX, " + stk_address($3->offset) + "\n";
