@@ -11,6 +11,7 @@
  int tempCount = 0;
  int labelCount = 0;
  int sp = 0;
+ string param_code = "";
  string cur_function_name = "";
 
  fstream logFile;
@@ -391,6 +392,7 @@ func_definition: type_specifier ID LPAREN parameter_list RPAREN {
             symbolTable.insert(var);
             symbolTable.enterScope();
             bool discrepancy = false;
+            int param_val = 4;
             for(int i = 0; i < paramList.size(); i++){
                 vector<string> variable = splitString(paramList[i], ' ');
                 string varType = "";
@@ -401,6 +403,8 @@ func_definition: type_specifier ID LPAREN parameter_list RPAREN {
                     SymbolInfo* temp;
                     temp = new SymbolInfo(varName, "ID");
                     temp->setDataType(varType);
+                    incrementSP();
+                    temp->offset = to_string(sp);
 
                     if(!symbolTable.insert(temp)){
                         error_count++;
@@ -408,6 +412,10 @@ func_definition: type_specifier ID LPAREN parameter_list RPAREN {
                         logFile << "Line " << line_count << ": func_definition: type_specifier ID LPAREN parameter_list RPAREN\n";
                         logFile << "Error at line " << line_count << ": Multiple declaration of " << varName << " in parameter" << endl;
                     }
+
+                    param_code += "MOV AX, " + stk_address_param(to_string(param_val))+"\n";
+                    param_code += "MOV "  +stk_address_typecast(temp->offset) + ", AX\n";
+                    param_val+=2;
                 }else{
                     if(!discrepancy){
                         error_count++;
@@ -453,6 +461,7 @@ func_definition: type_specifier ID LPAREN parameter_list RPAREN {
                     f->setFunctionReturnType($1->getName());
                     symbolTable.insert(f);
                     symbolTable.enterScope();
+                    int param_val = 4;
                     for(int i = 0; i < definedParamLen; i++){
                         string p = definedParams[i];
                         string q = declaredParams[i];
@@ -468,6 +477,8 @@ func_definition: type_specifier ID LPAREN parameter_list RPAREN {
                         SymbolInfo* temp;
                         temp = new SymbolInfo(varName, "ID");
                         temp->setDataType(varType);
+                        incrementSP();
+                        temp->offset = to_string(sp);
 
                         if(!symbolTable.insert(temp)){
                             error_count++;
@@ -475,6 +486,10 @@ func_definition: type_specifier ID LPAREN parameter_list RPAREN {
                             logFile << "Line " << line_count << ": func_definition: type_specifier ID LPAREN parameter_list RPAREN\n";
                             logFile << "Error at line " << line_count << ": Multiple declaration of " << varName << endl;
                         }
+
+                        param_code += "MOV AX, " + stk_address_param(to_string(param_val))+"\n";
+                        param_code += "MOV "  +stk_address_typecast(temp->offset) + ", AX\n";
+                        param_val+=2;
                     }
                 }
             }else{
@@ -509,10 +524,13 @@ func_definition: type_specifier ID LPAREN parameter_list RPAREN {
         $$->asmCode += "SUB SP, " + to_string(sp) + "\n";
 
         $$->asmCode += $4->asmCode + "\n";
+        $$->asmCode += param_code + "\n";
         $$->asmCode += $7->asmCode + "\n";
         $$->asmCode += "L_" + $2->getName() + ":\n";
         $$->asmCode += "ADD SP, " + to_string(sp) + "\n";
         $$->asmCode += "POP BP\n";
+
+        param_code = "";
 
         if($2->getName() == "main"){
             $$->asmCode += "\n;DOS EXIT\nMOV AH, 4CH\nINT 21H\n";
@@ -1015,8 +1033,6 @@ variable: ID    {
         string type = $1->getType();
         SymbolInfo* var = symbolTable.lookup($1->getName());
 
-        $$->asmText = $1->getName() + "[" + $3->asmText + "]";
-
         if(var == NULL){
             error_count++;
             type = "error";
@@ -1047,6 +1063,8 @@ variable: ID    {
 
         $$ = new SymbolInfo($1->getName()+"["+$3->getName()+"]", type);
         logFile << $$->getName() << endl;
+
+        $$->asmText = $1->getName() + "[" + $3->asmText + "]";
 
         if(var != NULL){
             $$->asmCode = $3->asmCode = "\n";
