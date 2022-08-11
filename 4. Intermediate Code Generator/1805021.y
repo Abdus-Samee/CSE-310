@@ -85,32 +85,32 @@
   return word + " dw ?";
  }
 
- string getJumpText(string relop){
-    if(relop=="<") return "jl";
-    if(relop=="<=") return "jle";
-    if(relop==">") return "jg";
-    if(relop==">=") return "jge";
-    if(relop=="==") return "je";
-    if(relop=="!=") return "jne";
+ string getAssemblyForJump(string relop){
+    if(relop == "==") return "je";
+    else if(relop == ">") return "jg";
+    else if(relop == "<") return "jl";
+    else if(relop == ">=") return "jge";
+    else if(relop == "<=") return "jle";
+    else if(relop == "!=") return "jne";
  }
 
- string stk_address(string stk_offset){
-    return "[bp-"+stk_offset+"]";
+ string getStackAddress(string offset){
+    return "[bp-"+offset+"]";
  }
 
- string stk_address_param(string stk_offset){
-    return "[bp+"+stk_offset+"]";
+ string getStackAddressOfParameter(string offset){
+    return "[bp+"+offset+"]";
  }
 
- string stk_address_typecast(string stk_offset){
-    return "WORD PTR [bp-"+stk_offset+"]";
+ string getStackAddress_typecast(string offset){
+    return "WORD PTR [bp-"+offset+"]";
  }
 
- string cur_function_label(string name){
-    return "L_"+name;
+ string getCurrFuncLabel(string name){
+    return "L_" + name;
  }
 
- string process_global_variable(string str){
+ string getGlobalAddress(string str){
     vector<string> ret;
     char delim = '[';
 
@@ -129,8 +129,8 @@
     else return ret[0]+"[BX]";
  }
 
- vector<string> tokenize(string str,char delim){
-    vector<string> ret;
+ vector<string> tokenize(string str, char delim){
+    vector<string> ans;
 
     size_t start;
     size_t end = 0;
@@ -138,13 +138,13 @@
     while ((start = str.find_first_not_of(delim, end)) != string::npos)
     {
         end = str.find(delim, start);
-        ret.push_back(str.substr(start, end - start));
+        ans.push_back(str.substr(start, end - start));
     }
 
-    return ret;
+    return ans;
  }
 
- void optimize_code(string code){
+ void codeOptimization(string code){
     vector<string>line_v  = tokenize(code,'\n');
     int line_v_sz = line_v.size();
 
@@ -206,7 +206,7 @@
     }
  }
 
- bool isATempVariable(string s){
+ bool isTemp(string s){
     for(string x:temp_SP_vector)
         if(x == s) return true;
 
@@ -244,41 +244,39 @@ start: program{
    logFile << "Line " << line_count << ": start: program\n" << $$->getName() << endl;
 
    if(error_count == 0){
-    string asm_header = ".MODEL SMALL\n\n.STACK 100H";
-    string output_proc = "";
-    output_proc += "\r\nOUTPUT PROC\r\n               ";
-    output_proc += "\r\n        MOV CX , 0FH     \r\n        PUSH CX ; marker\r\n        \r\n        MOV IS_NEG, 0H\r\n        ";
-    output_proc += "MOV AX , FOR_PRINT\r\n        TEST AX , 8000H\r\n        JE OUTPUT_LOOP\r\n                    \r\n        ";
-    output_proc += "MOV IS_NEG, 1H\r\n        MOV AX , 0FFFFH\r\n        SUB AX , FOR_PRINT\r\n        ADD AX , 1H\r\n        ";
-    output_proc += "MOV FOR_PRINT , AX\r\n\r\n    OUTPUT_LOOP:\r\n    \r\n        ;MOV AH, 1\r\n        ;INT 21H\r\n        \r\n        ";
-    output_proc += "MOV AX , FOR_PRINT\r\n        XOR DX,DX\r\n        MOV BX , 10D\r\n        DIV BX ; QUOTIENT : AX  , REMAINDER : DX     ";
-    output_proc += "\r\n        \r\n        MOV FOR_PRINT , AX\r\n        \r\n        PUSH DX\r\n        \r\n        CMP AX , 0H\r\n        ";
-    output_proc += "JNE OUTPUT_LOOP\r\n        \r\n        ;LEA DX, NEWLINE ; DX : USED IN IO and MUL,DIV\r\n        ;MOV AH, 9 ; AH,9 used for character string output\r\n";
-    output_proc += "        ;INT 21H;\r\n\r\n        MOV AL , IS_NEG\r\n        CMP AL , 1H\r\n        JNE OP_STACK_PRINT\r\n        \r\n        ";
-    output_proc += "MOV AH, 2\r\n        MOV DX, '-' ; stored in DL for display \r\n        INT 21H\r\n            \r\n        \r\n    ";
-    output_proc += "OP_STACK_PRINT:\r\n    \r\n        ;MOV AH, 1\r\n        ;INT 21H\r\n    \r\n        POP BX\r\n        \r\n        ";
-    output_proc += "CMP BX , 0FH\r\n        JE EXIT_OUTPUT\r\n        \r\n       \r\n        MOV AH, 2\r\n        MOV DX, BX ; stored in DL for display \r\n";
-    output_proc += "        ADD DX , 30H\r\n        INT 21H\r\n        \r\n        JMP OP_STACK_PRINT\r\n\r\n    EXIT_OUTPUT:\r\n    \r\n        ";
-    output_proc += ";POP CX \r\n\r\n        LEA DX, NEWLINE\r\n        MOV AH, 9 \r\n        INT 21H\r\n    \r\n        RET     \r\n      ";
-    output_proc += "\r\nOUTPUT ENDP";
+    string header = ".MODEL SMALL\n\n.STACK 100H";
+    string print_str = "";
+    print_str += "\r\nPRINT_TO_CONSOLE PROC\r\n               ";
+    print_str += "\r\n        MOV CX , 0FH     \r\n        PUSH CX ; marker\r\n        \r\n        MOV IS_NEG, 0H\r\n        ";
+    print_str += "MOV AX , FOR_PRINT\r\n        TEST AX , 8000H\r\n        JE PRINT_TO_CONSOLE_LOOP\r\n                    \r\n        ";
+    print_str += "MOV IS_NEG, 1H\r\n        MOV AX , 0FFFFH\r\n        SUB AX , FOR_PRINT\r\n        ADD AX , 1H\r\n        ";
+    print_str += "MOV FOR_PRINT , AX\r\n\r\n    PRINT_TO_CONSOLE_LOOP:\r\n    \r\n        ;MOV AH, 1\r\n        ;INT 21H\r\n        \r\n        ";
+    print_str += "MOV AX , FOR_PRINT\r\n        XOR DX,DX\r\n        MOV BX , 10D\r\n        DIV BX ; QUOTIENT : AX  , REMAINDER : DX     ";
+    print_str += "\r\n        \r\n        MOV FOR_PRINT , AX\r\n        \r\n        PUSH DX\r\n        \r\n        CMP AX , 0H\r\n        ";
+    print_str += "JNE PRINT_TO_CONSOLE_LOOP\r\n        \r\n        ;LEA DX, NEWLINE ; DX : USED IN IO and MUL,DIV\r\n        ;MOV AH, 9 ; AH,9 used for character string output\r\n";
+    print_str += "        ;INT 21H;\r\n\r\n        MOV AL , IS_NEG\r\n        CMP AL , 1H\r\n        JNE OP_STACK_PRINT\r\n        \r\n        ";
+    print_str += "MOV AH, 2\r\n        MOV DX, '-' ; stored in DL for display \r\n        INT 21H\r\n            \r\n        \r\n    ";
+    print_str += "OP_STACK_PRINT:\r\n    \r\n        ;MOV AH, 1\r\n        ;INT 21H\r\n    \r\n        POP BX\r\n        \r\n        ";
+    print_str += "CMP BX , 0FH\r\n        JE EXIT_PRINT_TO_CONSOLE\r\n        \r\n       \r\n        MOV AH, 2\r\n        MOV DX, BX ; stored in DL for display \r\n";
+    print_str += "        ADD DX , 30H\r\n        INT 21H\r\n        \r\n        JMP OP_STACK_PRINT\r\n\r\n    EXIT_PRINT_TO_CONSOLE:\r\n    \r\n        ";
+    print_str += ";POP CX \r\n\r\n        LEA DX, NEWLINE\r\n        MOV AH, 9 \r\n        INT 21H\r\n    \r\n        RET     \r\n      ";
+    print_str += "\r\nPRINT_TO_CONSOLE ENDP";
     
-    asmFile << asm_header << endl;
+    asmFile << header << endl;
     asmFile << ".DATA" << endl;
     for(auto dv : dataVars) asmFile << dv << endl;
     asmFile << endl;
     asmFile << ".CODE" << endl;
-    asmFile << output_proc << endl;
+    asmFile << print_str << endl;
     asmFile << "\n" << $$->asmCode << "\n" << endl;
 
-    ///////////
-    optimizedFile << asm_header << endl;
+    optimizedFile << header << endl;
     optimizedFile << ".DATA" << endl;
     for(auto dv : dataVars) optimizedFile << dv << endl;
     optimizedFile << endl;
     optimizedFile << ".CODE" << endl;
-    optimizedFile << output_proc << endl;
-    optimizedFile << "\n" << endl;
-    optimize_code($$->asmCode);
+    optimizedFile << print_str << "\n\n" << endl;
+    codeOptimization($$->asmCode);
    }
 };
 
@@ -413,8 +411,8 @@ func_definition: type_specifier ID LPAREN parameter_list RPAREN {
                         logFile << "Error at line " << line_count << ": Multiple declaration of " << varName << " in parameter" << endl;
                     }
 
-                    param_code += "MOV AX, " + stk_address_param(to_string(param_val))+"\n";
-                    param_code += "MOV "  +stk_address_typecast(temp->offset) + ", AX\n";
+                    param_code += "MOV AX, " + getStackAddressOfParameter(to_string(param_val))+"\n";
+                    param_code += "MOV "  +getStackAddress_typecast(temp->offset) + ", AX\n";
                     param_val+=2;
                 }else{
                     if(!discrepancy){
@@ -487,8 +485,8 @@ func_definition: type_specifier ID LPAREN parameter_list RPAREN {
                             logFile << "Error at line " << line_count << ": Multiple declaration of " << varName << endl;
                         }
 
-                        param_code += "MOV AX, " + stk_address_param(to_string(param_val))+"\n";
-                        param_code += "MOV "  +stk_address_typecast(temp->offset) + ", AX\n";
+                        param_code += "MOV AX, " + getStackAddressOfParameter(to_string(param_val))+"\n";
+                        param_code += "MOV "  +getStackAddress_typecast(temp->offset) + ", AX\n";
                         param_val+=2;
                     }
                 }
@@ -522,7 +520,6 @@ func_definition: type_specifier ID LPAREN parameter_list RPAREN {
 
         $$->asmCode += "PUSH BP\nMOV BP,SP\n";
         $$->asmCode += "SUB SP, " + to_string(sp) + "\n";
-
         $$->asmCode += $4->asmCode + "\n";
         $$->asmCode += param_code + "\n";
         $$->asmCode += $7->asmCode + "\n";
@@ -855,7 +852,7 @@ statement: var_declaration  {
         $$->asmCode += $4->asmCode + "\n"; // eval expression
 
         $$->asmCode += "; check for loop condition\n";
-        $$->asmCode += "CMP " + stk_address($4->offset) + ", 0\n"; // check if need to exit
+        $$->asmCode += "CMP " + getStackAddress($4->offset) + ", 0\n"; // check if need to exit
         $$->asmCode += "JE " + t2 + "\n"; // check if need to exit
 
         $$->asmCode += $7->asmCode + "\n";  // exec statement
@@ -879,7 +876,7 @@ statement: var_declaration  {
         $$->asmCode += $3->asmCode + "\n";
         
         string t1 = newLabel();
-        $$->asmCode += "CMP " + stk_address($3->offset) + ", 0\n";
+        $$->asmCode += "CMP " + getStackAddress($3->offset) + ", 0\n";
         $$->asmCode += "JE " + t1 + "\n";
         $$->asmCode += $5->asmCode + "\n";
         $$->asmCode += t1 + ":\n";
@@ -899,7 +896,7 @@ statement: var_declaration  {
         string t1 = newLabel();
         string t2 = newLabel();
 
-        $$->asmCode += "CMP " + stk_address($3->offset) + ", 0\n";
+        $$->asmCode += "CMP " + getStackAddress($3->offset) + ", 0\n";
         $$->asmCode += "JE " + t1 + "\n";
 
         $$->asmCode += $5->asmCode + "\n";
@@ -928,7 +925,7 @@ statement: var_declaration  {
         $$->asmCode += $3->asmCode + "\n"; // eval expression
 
         $$->asmCode += "; check while loop condition\n";
-        $$->asmCode += "CMP " + stk_address($3->offset) + ", 0\n"; // check if need to exit
+        $$->asmCode += "CMP " + getStackAddress($3->offset) + ", 0\n"; // check if need to exit
         $$->asmCode += "JE " + t2 + "\n"; // check if need to exit
 
         $$->asmCode += $5->asmCode + "\n";  // exec statement
@@ -953,11 +950,11 @@ statement: var_declaration  {
 
         logFile << $$->getName() << endl;
             
-        if(var != NULL && var->offset != "") $$->asmCode += "MOV AX, " + stk_address(var->offset) + "\n";
+        if(var != NULL && var->offset != "") $$->asmCode += "MOV AX, " + getStackAddress(var->offset) + "\n";
         else $$->asmCode += "MOV AX, " + $3->getName() + "\n";
         
         $$->asmCode += "MOV FOR_PRINT, AX\n";
-        $$->asmCode += "CALL OUTPUT";
+        $$->asmCode += "CALL PRINT_TO_CONSOLE";
     }
     | RETURN expression SEMICOLON   {
         $$ = new SymbolInfo("return "+$2->getName() + ";", $2->getType());
@@ -967,12 +964,12 @@ statement: var_declaration  {
         $$->asmCode = "; " + $$->asmText + "\n";
         $$->asmCode += $2->asmCode + "\n";
 
-        if($2->offset != "") $$->asmCode += "MOV AX, " + stk_address($2->offset) + "\n";
+        if($2->offset != "") $$->asmCode += "MOV AX, " + getStackAddress($2->offset) + "\n";
         else{
-            $$->asmCode += "MOV AX, " + process_global_variable($2->asmText) + "\n";
+            $$->asmCode += "MOV AX, " + getGlobalAddress($2->asmText) + "\n";
         } 
 
-        $$->asmCode += "JMP " + cur_function_label(cur_function_name)+"\n";
+        $$->asmCode += "JMP " + getCurrFuncLabel(cur_function_name)+"\n";
     }
     ;
 
@@ -1070,11 +1067,11 @@ variable: ID    {
             $$->asmCode = $3->asmCode = "\n";
 
             if(var->offset != ""){
-                $$->asmCode += "MOV SI, " + stk_address($3->offset) + "\n";
+                $$->asmCode += "MOV SI, " + getStackAddress($3->offset) + "\n";
                 $$->asmCode += "ADD SI, SI";
                 $$->offset = var->offset + " + SI";
             }else{
-                $$->asmCode += "MOV BX, " + stk_address($3->offset) + "\n";
+                $$->asmCode += "MOV BX, " + getStackAddress($3->offset) + "\n";
                 $$->asmCode += "ADD BX, BX";
             }
         }
@@ -1118,13 +1115,13 @@ expression: logic_expression    {
         $$->asmText = $1->asmText + "=" + $3->asmText;
         $$->asmCode = $3->asmCode + "\n";
 
-        if($3->offset != "") $$->asmCode += "MOV CX, " + stk_address($3->offset) + "\n";
-        else $$->asmCode += "MOV CX, " + process_global_variable($3->asmText) + "\n";
+        if($3->offset != "") $$->asmCode += "MOV CX, " + getStackAddress($3->offset) + "\n";
+        else $$->asmCode += "MOV CX, " + getGlobalAddress($3->asmText) + "\n";
 
         if($1->asmCode != "") $$->asmCode += $1->asmCode + "\n";
 
-        if($1->offset != "") $$->asmCode += "MOV " + stk_address_typecast($1->offset) + ",CX";
-        else $$->asmCode += "MOV " + process_global_variable($1->asmText) + ", CX";
+        if($1->offset != "") $$->asmCode += "MOV " + getStackAddress_typecast($1->offset) + ",CX";
+        else $$->asmCode += "MOV " + getGlobalAddress($1->asmText) + ", CX";
     }
     ;
 
@@ -1141,22 +1138,22 @@ logic_expression: rel_expression    {
         if($2->getName() == "&&"){
             $$->asmCode = $1->asmCode + "\n" + $3->asmCode + "\n";
 
-            if($1->offset != "") $$->asmCode += "CMP " + stk_address($1->offset) + ", 0\n";
-            else  $$->asmCode += "CMP "+ process_global_variable($1->asmText) + ", 0\n";
+            if($1->offset != "") $$->asmCode += "CMP " + getStackAddress($1->offset) + ", 0\n";
+            else  $$->asmCode += "CMP "+ getGlobalAddress($1->asmText) + ", 0\n";
 
             string t1 = newLabel();
             string t2 = newLabel();
 
             $$->asmCode += "JE " + t1 + "\n";
 
-            if($3->offset != "") $$->asmCode += "CMP " + stk_address($3->offset) + ", 0\n";
-            else $$->asmCode += "CMP " + process_global_variable($3->asmText) + ", 0\n";
+            if($3->offset != "") $$->asmCode += "CMP " + getStackAddress($3->offset) + ", 0\n";
+            else $$->asmCode += "CMP " + getGlobalAddress($3->asmText) + ", 0\n";
 
             $$->asmCode += "JE " + t1 + "\n";
 
-            if(isATempVariable($1->offset)){
+            if(isTemp($1->offset)){
                 $$->offset = $1->offset;
-            }else if(isATempVariable($3->offset)){
+            }else if(isTemp($3->offset)){
                 $$->offset = $3->offset;
             }else{
                 string tempVar = newTemp();
@@ -1165,31 +1162,31 @@ logic_expression: rel_expression    {
                 $$->offset = to_string(sp);
             }
 
-            $$->asmCode += "MOV " + stk_address_typecast($$->offset) + ", 1\n";
+            $$->asmCode += "MOV " + getStackAddress_typecast($$->offset) + ", 1\n";
             $$->asmCode += "JMP " + t2 + "\n";
             $$->asmCode += t1 + ":\n";
-            $$->asmCode += "MOV " + stk_address_typecast($$->offset) + ", 0\n";
+            $$->asmCode += "MOV " + getStackAddress_typecast($$->offset) + ", 0\n";
             $$->asmCode += t2 + ":\n";
             
         }else if($2->getName() == "||"){
             $$->asmCode = $1->asmCode + "\n" + $3->asmCode + "\n";
 
-            if($1->offset != "") $$->asmCode += "CMP " + stk_address($1->offset) + ", 0\n";
-            else  $$->asmCode += "CMP " + process_global_variable($1->asmText) + ", 0\n";
+            if($1->offset != "") $$->asmCode += "CMP " + getStackAddress($1->offset) + ", 0\n";
+            else  $$->asmCode += "CMP " + getGlobalAddress($1->asmText) + ", 0\n";
 
             string t1 = newLabel();
             string t2 = newLabel();
 
             $$->asmCode += "JNE " + t1 + "\n";
 
-            if($3->offset != "") $$->asmCode += "CMP " + stk_address($3->offset) + ", 0\n";
-            else $$->asmCode += "CMP " + process_global_variable($3->asmText) + ", 0\n";
+            if($3->offset != "") $$->asmCode += "CMP " + getStackAddress($3->offset) + ", 0\n";
+            else $$->asmCode += "CMP " + getGlobalAddress($3->asmText) + ", 0\n";
 
             $$->asmCode += "JNE " + t1 + "\n";
 
-            if(isATempVariable($1->offset)){
+            if(isTemp($1->offset)){
                 $$->offset = $1->offset;
-            }else if(isATempVariable($3->offset)){
+            }else if(isTemp($3->offset)){
                 $$->offset = $3->offset;
             }else{
                 string tempVar = newTemp();
@@ -1198,10 +1195,10 @@ logic_expression: rel_expression    {
                 $$->offset = to_string(sp);
             }
 
-            $$->asmCode += "MOV " + stk_address_typecast($$->offset) + ", 0\n";
+            $$->asmCode += "MOV " + getStackAddress_typecast($$->offset) + ", 0\n";
             $$->asmCode += "JMP " + t2 + "\n";
             $$->asmCode += t1 + ":\n";
-            $$->asmCode += "MOV " + stk_address_typecast($$->offset) + ", 1\n";
+            $$->asmCode += "MOV " + getStackAddress_typecast($$->offset) + ", 1\n";
             $$->asmCode += t2 + ":\n";
 
         }
@@ -1219,18 +1216,18 @@ rel_expression: simple_expression   {
         $$->asmText = $1->asmText + $2->getName() + $3->asmText;
         $$->asmCode = $1->asmCode + "\n" + $3->asmCode + "\n";
 
-        if($1->offset != "") $$->asmCode += "MOV AX, " + stk_address($1->offset) + "\n";
-        else $$->asmCode += "MOV AX, " + process_global_variable($1->asmText) + "\n";
+        if($1->offset != "") $$->asmCode += "MOV AX, " + getStackAddress($1->offset) + "\n";
+        else $$->asmCode += "MOV AX, " + getGlobalAddress($1->asmText) + "\n";
 
-        if($3->offset != "") $$->asmCode += "CMP AX, " + stk_address($3->offset) + "\n";
-        else $$->asmCode += "CMP AX, " + process_global_variable($3->asmText) + "\n";
+        if($3->offset != "") $$->asmCode += "CMP AX, " + getStackAddress($3->offset) + "\n";
+        else $$->asmCode += "CMP AX, " + getGlobalAddress($3->asmText) + "\n";
 
         string t1 = newLabel();
         string t2 = newLabel();
 
-        if(isATempVariable($1->offset)){
+        if(isTemp($1->offset)){
             $$->offset = $1->offset;
-        }else if(isATempVariable($3->offset)){
+        }else if(isTemp($3->offset)){
             $$->offset = $3->offset;
         }else{
             string tempVar = newTemp();
@@ -1239,12 +1236,12 @@ rel_expression: simple_expression   {
             $$->offset = to_string(sp);
         }
 
-        string jumpText = getJumpText($2->getName());
+        string jumpText = getAssemblyForJump($2->getName());
         $$->asmCode += jumpText + " " + t1 + "\n";
-        $$->asmCode += "MOV " + stk_address_typecast($$->offset) + ", 0" + "\n";
+        $$->asmCode += "MOV " + getStackAddress_typecast($$->offset) + ", 0" + "\n";
         $$->asmCode += "JMP " + t2 + "\n";
         $$->asmCode += t1 + ":\n";
-        $$->asmCode += "MOV " + stk_address_typecast($$->offset) + ", 1" + "\n";
+        $$->asmCode += "MOV " + getStackAddress_typecast($$->offset) + ", 1" + "\n";
         $$->asmCode += t2 + ":\n";
 
     }
@@ -1265,22 +1262,22 @@ simple_expression: term {
         if($2->getName() == "+"){
             $$->asmCode = $1->asmCode + "\n";
             
-            if($1->offset != "") $$->asmCode += "MOV AX, " + stk_address($1->offset) + "\n";
-            else $$->asmCode += "MOV AX, " + process_global_variable($1->asmText) + "\n";
+            if($1->offset != "") $$->asmCode += "MOV AX, " + getStackAddress($1->offset) + "\n";
+            else $$->asmCode += "MOV AX, " + getGlobalAddress($1->asmText) + "\n";
 
             string tempVarExtra = newTemp();
             string tempVarExtra_stk_add = to_string(sp);
 
-            $$->asmCode += "MOV " + stk_address_typecast(tempVarExtra_stk_add) + ", AX\n";
+            $$->asmCode += "MOV " + getStackAddress_typecast(tempVarExtra_stk_add) + ", AX\n";
             $$->asmCode += $3->asmCode + "\n";
-            $$->asmCode += "MOV AX, " + stk_address(tempVarExtra_stk_add) + "\n";
+            $$->asmCode += "MOV AX, " + getStackAddress(tempVarExtra_stk_add) + "\n";
 
-            if($3->offset != "") $$->asmCode += "ADD AX, " + stk_address($3->offset) + "\n";
-            else $$->asmCode += "ADD AX, " + process_global_variable($3->asmText) + "\n";
+            if($3->offset != "") $$->asmCode += "ADD AX, " + getStackAddress($3->offset) + "\n";
+            else $$->asmCode += "ADD AX, " + getGlobalAddress($3->asmText) + "\n";
 
-            if(isATempVariable($1->offset)){
+            if(isTemp($1->offset)){
                 $$->offset = $1->offset;
-            }else if(isATempVariable($3->offset)){
+            }else if(isTemp($3->offset)){
                 $$->offset = $3->offset;
             }else{
                 string tempVar = newTemp();
@@ -1289,28 +1286,28 @@ simple_expression: term {
                 $$->offset = to_string(sp);
             }
 
-            $$->asmCode += "MOV " + stk_address_typecast($$->offset) + ", AX";
+            $$->asmCode += "MOV " + getStackAddress_typecast($$->offset) + ", AX";
         }else{
             $$->asmCode = $1->asmCode + "\n";
             
-            if($1->offset != "") $$->asmCode += "MOV AX, " + stk_address($1->offset) + "\n";
-            else $$->asmCode += "MOV AX, " + process_global_variable($1->asmText) + "\n";
+            if($1->offset != "") $$->asmCode += "MOV AX, " + getStackAddress($1->offset) + "\n";
+            else $$->asmCode += "MOV AX, " + getGlobalAddress($1->asmText) + "\n";
 
             string tempVarExtra = newTemp();
             string tempVarExtra_stk_add = to_string(sp);
 
-            $$->asmCode += "MOV " + stk_address_typecast(tempVarExtra_stk_add) + ", AX\n";
+            $$->asmCode += "MOV " + getStackAddress_typecast(tempVarExtra_stk_add) + ", AX\n";
 
             $$->asmCode += $3->asmCode + "\n";
             
-            $$->asmCode += "MOV AX, " + stk_address(tempVarExtra_stk_add) + "\n";
+            $$->asmCode += "MOV AX, " + getStackAddress(tempVarExtra_stk_add) + "\n";
             
-            if($3->offset != "") $$->asmCode += "SUB AX, " + stk_address($3->offset) + "\n";
-            else $$->asmCode += "SUB AX, " + process_global_variable($3->asmText) + "\n";
+            if($3->offset != "") $$->asmCode += "SUB AX, " + getStackAddress($3->offset) + "\n";
+            else $$->asmCode += "SUB AX, " + getGlobalAddress($3->asmText) + "\n";
 
-            if(isATempVariable($1->offset)){
+            if(isTemp($1->offset)){
                 $$->offset = $1->offset;
-            }else if(isATempVariable($3->offset)){
+            }else if(isTemp($3->offset)){
                 $$->offset = $3->offset;
             }else{
                 string tempVar = newTemp();
@@ -1319,7 +1316,7 @@ simple_expression: term {
                 $$->offset = to_string(sp);
             }
 
-            $$->asmCode += "MOV " + stk_address_typecast($$->offset) + ", AX";
+            $$->asmCode += "MOV " + getStackAddress_typecast($$->offset) + ", AX";
         }
     }
     ;
@@ -1369,28 +1366,28 @@ term: unary_expression  {
             $$->asmCode = $1->asmCode + "\n";
             
 
-            if($1->offset != "") $$->asmCode += "MOV CX, " + stk_address($1->offset) + "\n";
-            else $$->asmCode += "MOV CX, " + process_global_variable($1->asmText) + "\n";
+            if($1->offset != "") $$->asmCode += "MOV CX, " + getStackAddress($1->offset) + "\n";
+            else $$->asmCode += "MOV CX, " + getGlobalAddress($1->asmText) + "\n";
             
             $$->asmCode += "CWD\n";
 
             string tempVarExtra = newTemp();
             string tempVarExtra_stk_add = to_string(sp);
 
-            $$->asmCode += "MOV " + stk_address_typecast(tempVarExtra_stk_add) + ", CX\n";
+            $$->asmCode += "MOV " + getStackAddress_typecast(tempVarExtra_stk_add) + ", CX\n";
 
             $$->asmCode += $3->asmCode + "\n";
             
-            $$->asmCode += "MOV CX, " + stk_address(tempVarExtra_stk_add) + "\n";
+            $$->asmCode += "MOV CX, " + getStackAddress(tempVarExtra_stk_add) + "\n";
 
             $$->asmCode += "MOV AX, CX\n";
 
-            if($3->offset != "") $$->asmCode += "IDIV " + stk_address_typecast($3->offset) + "\n";
-            else $$->asmCode += "IDIV " + process_global_variable($3->asmText) + "\n";
+            if($3->offset != "") $$->asmCode += "IDIV " + getStackAddress_typecast($3->offset) + "\n";
+            else $$->asmCode += "IDIV " + getGlobalAddress($3->asmText) + "\n";
 
-            if(isATempVariable($1->offset)){
+            if(isTemp($1->offset)){
                 $$->offset = $1->offset;
-            }else if(isATempVariable($3->offset)){
+            }else if(isTemp($3->offset)){
                 $$->offset = $3->offset;
             }else{
                 string tempVar = newTemp();
@@ -1398,27 +1395,27 @@ term: unary_expression  {
                 $$->offset = to_string(sp);
             }
 
-            $$->asmCode += "MOV " + stk_address_typecast($$->offset) + ", DX";            
+            $$->asmCode += "MOV " + getStackAddress_typecast($$->offset) + ", DX";            
         }else if($2->getName() == "*"){
             $$->asmCode = $1->asmCode + "\n";
 
-            if($1->offset != "") $$->asmCode += "MOV CX, " + stk_address($1->offset) + "\n";
-            else $$->asmCode += "MOV CX, " + process_global_variable($1->asmText) + "\n";
+            if($1->offset != "") $$->asmCode += "MOV CX, " + getStackAddress($1->offset) + "\n";
+            else $$->asmCode += "MOV CX, " + getGlobalAddress($1->asmText) + "\n";
 
             string tempVarExtra = newTemp();
             string tempVarExtra_stk_add = to_string(sp);
 
-            $$->asmCode += "MOV " + stk_address_typecast(tempVarExtra_stk_add) + ", CX\n";
+            $$->asmCode += "MOV " + getStackAddress_typecast(tempVarExtra_stk_add) + ", CX\n";
             $$->asmCode += $3->asmCode + "\n";
-            $$->asmCode += "MOV CX, " + stk_address(tempVarExtra_stk_add) + "\n";
+            $$->asmCode += "MOV CX, " + getStackAddress(tempVarExtra_stk_add) + "\n";
             $$->asmCode += "MOV AX, CX\n";
 
-            if($3->offset != "") $$->asmCode += "IMUL " + stk_address_typecast($3->offset) + "\n";
-            else $$->asmCode += "IMUL " + process_global_variable($3->asmText) + "\n";
+            if($3->offset != "") $$->asmCode += "IMUL " + getStackAddress_typecast($3->offset) + "\n";
+            else $$->asmCode += "IMUL " + getGlobalAddress($3->asmText) + "\n";
 
-            if(isATempVariable($1->offset)){
+            if(isTemp($1->offset)){
                 $$->offset = $1->offset;
-            }else if(isATempVariable($3->offset)){
+            }else if(isTemp($3->offset)){
                 $$->offset = $3->offset;
             }else{
                 string tempVar = newTemp();
@@ -1427,29 +1424,29 @@ term: unary_expression  {
                 $$->offset = to_string(sp);
             }
 
-            $$->asmCode += "MOV " + stk_address_typecast($$->offset) + ", AX";
+            $$->asmCode += "MOV " + getStackAddress_typecast($$->offset) + ", AX";
         }else if($2->getName() == "/"){
             $$->asmCode = $1->asmCode + "\n";
 
-            if($1->offset!="") $$->asmCode += "MOV CX, " + stk_address($1->offset)+"\n";
-            else $$->asmCode += "MOV CX, " + process_global_variable($1->asmText) + "\n";
+            if($1->offset!="") $$->asmCode += "MOV CX, " + getStackAddress($1->offset)+"\n";
+            else $$->asmCode += "MOV CX, " + getGlobalAddress($1->asmText) + "\n";
             
             $$->asmCode += "CWD\n";
 
             string tempVarExtra = newTemp();
             string tempVarExtra_stk_add = to_string(sp);
 
-            $$->asmCode += "MOV " + stk_address_typecast(tempVarExtra_stk_add) + ", CX\n";
+            $$->asmCode += "MOV " + getStackAddress_typecast(tempVarExtra_stk_add) + ", CX\n";
             $$->asmCode += $3->asmCode + "\n";
-            $$->asmCode += "MOV CX, " + stk_address(tempVarExtra_stk_add) + "\n";
+            $$->asmCode += "MOV CX, " + getStackAddress(tempVarExtra_stk_add) + "\n";
             $$->asmCode += "MOV AX, CX\n";
 
-            if($3->offset != "") $$->asmCode += "IDIV " + stk_address_typecast($3->offset) + "\n";
-            else $$->asmCode += "IDIV " + process_global_variable($3->asmText) + "\n";
+            if($3->offset != "") $$->asmCode += "IDIV " + getStackAddress_typecast($3->offset) + "\n";
+            else $$->asmCode += "IDIV " + getGlobalAddress($3->asmText) + "\n";
 
-            if(isATempVariable($1->offset)){
+            if(isTemp($1->offset)){
                 $$->offset = $1->offset;
-            }else if(isATempVariable($3->offset))
+            }else if(isTemp($3->offset))
             {
                 $$->offset = $3->offset;
             }else{
@@ -1459,7 +1456,7 @@ term: unary_expression  {
                 $$->offset = to_string(sp);
             }
 
-            $$->asmCode += "MOV " + stk_address_typecast($$->offset) + ", AX";
+            $$->asmCode += "MOV " + getStackAddress_typecast($$->offset) + ", AX";
         }
 
         $$->asmText = $1->asmText + $2->getName() + $3->asmText;
@@ -1479,7 +1476,7 @@ unary_expression: ADDOP unary_expression    {
         }else{
             $$->tempVar = $2->tempVar;
             $$->offset = $2->offset;
-            $$->asmCode = $2->asmCode + "\n" + "NEG " + stk_address_typecast($2->offset);
+            $$->asmCode = $2->asmCode + "\n" + "NEG " + getStackAddress_typecast($2->offset);
         }
     }
     | NOT unary_expression  {
@@ -1487,17 +1484,17 @@ unary_expression: ADDOP unary_expression    {
         logFile << "Line " << line_count << ": unary_expression : NOT unary_expression\n" << $$->getName() << endl;
 
         $$->asmText = "!" + $2->asmText;
-        $$->asmCode = $2->asmCode + "\n" + "CMP " + stk_address($2->offset) + ", 0\n";;
+        $$->asmCode = $2->asmCode + "\n" + "CMP " + getStackAddress($2->offset) + ", 0\n";;
         $$->offset = $2->offset;
 
         string t1 = newLabel();
         string t2 = newLabel();
 
         $$->asmCode += "JE " + t1 + "\n";
-        $$->asmCode += "MOV " + stk_address_typecast($$->offset) + ", 0\n";
+        $$->asmCode += "MOV " + getStackAddress_typecast($$->offset) + ", 0\n";
         $$->asmCode += "JMP " + t2 + "\n";
         $$->asmCode += t1 + ":\n";
-        $$->asmCode += "MOV " + stk_address_typecast($$->offset) + ", 1\n";
+        $$->asmCode += "MOV " + getStackAddress_typecast($$->offset) + ", 1\n";
         $$->asmCode += t2 + ":\n";
 
         $$->tempVar = $2->tempVar;
@@ -1580,7 +1577,7 @@ factor: variable    {
 
             if(function->getFunctionReturnType() != "void"){
                 $$->offset = to_string(sp);
-                $$->asmCode += "\nMOV " + stk_address_typecast($$->offset) + ", AX";
+                $$->asmCode += "\nMOV " + getStackAddress_typecast($$->offset) + ", AX";
             }
         }
     }
@@ -1602,7 +1599,7 @@ factor: variable    {
         $$->tempVar = tempVar;
         $$->offset = to_string(sp);
         temp_SP_vector.push_back(to_string(sp));
-        $$->asmCode = "MOV " + stk_address_typecast($$->offset) + ", " + $1->getName();
+        $$->asmCode = "MOV " + getStackAddress_typecast($$->offset) + ", " + $1->getName();
      }
     | CONST_FLOAT   {
         $$ = yylval.si;
@@ -1621,13 +1618,13 @@ factor: variable    {
         $$->offset = to_string(sp); 
         $$->asmCode = $1->asmCode + "\n";
 
-        if($1->offset != "") $$->asmCode += "MOV AX, " + stk_address($1->offset) + "\n";
-        else $$->asmCode += "MOV AX, " + process_global_variable($1->asmText) + "\n";
+        if($1->offset != "") $$->asmCode += "MOV AX, " + getStackAddress($1->offset) + "\n";
+        else $$->asmCode += "MOV AX, " + getGlobalAddress($1->asmText) + "\n";
         
-        $$->asmCode += "MOV " + stk_address_typecast($$->offset) + ", AX\n";
+        $$->asmCode += "MOV " + getStackAddress_typecast($$->offset) + ", AX\n";
 
-        if($1->offset != "") $$->asmCode += "INC " + stk_address_typecast($1->offset);
-        else $$->asmCode += "INC " + process_global_variable($1->asmText);
+        if($1->offset != "") $$->asmCode += "INC " + getStackAddress_typecast($1->offset);
+        else $$->asmCode += "INC " + getGlobalAddress($1->asmText);
     }
     | variable DECOP    {
         $$ = new SymbolInfo($1->getName()+"--", $1->getType());
@@ -1637,19 +1634,19 @@ factor: variable    {
         $$->asmText = $1->getName() + "--";
         $$->offset = $1->offset;
         $$->tempVar = $1->tempVar;
-        $$->asmCode = "DEC " + stk_address_typecast($$->offset);
+        $$->asmCode = "DEC " + getStackAddress_typecast($$->offset);
 
         $$->tempVar = newTemp();
         $$->offset = to_string(sp);
         $$->asmCode = $1->asmCode + "\n";
 
-        if($1->offset != "") $$->asmCode += "MOV AX, " + stk_address($1->offset) + "\n";
-        else $$->asmCode += "MOV AX, " + process_global_variable($1->asmText) + "\n";
+        if($1->offset != "") $$->asmCode += "MOV AX, " + getStackAddress($1->offset) + "\n";
+        else $$->asmCode += "MOV AX, " + getGlobalAddress($1->asmText) + "\n";
         
-        $$->asmCode += "MOV " + stk_address_typecast($$->offset) + ", AX\n";
+        $$->asmCode += "MOV " + getStackAddress_typecast($$->offset) + ", AX\n";
 
-        if($1->offset != "") $$->asmCode += "DEC " + stk_address_typecast($1->offset);
-        else $$->asmCode += "DEC " + process_global_variable($1->asmText);
+        if($1->offset != "") $$->asmCode += "DEC " + getStackAddress_typecast($1->offset);
+        else $$->asmCode += "DEC " + getGlobalAddress($1->asmText);
     }
     ;
 
@@ -1668,7 +1665,7 @@ arguments: arguments COMMA logic_expression {
 
         $$->asmText = $1->asmText + "," + $3->asmText;
         $$->asmCode = $3->asmCode + "\n";
-        if($3->offset != "") $$->asmCode += "PUSH " + stk_address($3->offset) + "\n";
+        if($3->offset != "") $$->asmCode += "PUSH " + getStackAddress($3->offset) + "\n";
         else $$->asmCode += "PUSH " + $3->asmText + "\n";
 
         $$->asmCode += $1->asmCode;
@@ -1678,7 +1675,7 @@ arguments: arguments COMMA logic_expression {
         $$->asmCode = $1->asmCode + "\n";
         logFile << "Line " << line_count << ": arguments : logic_expression\n" << $$->getName() << endl;
 
-        if($$->offset != "") $$->asmCode += "PUSH " + stk_address($$->offset);
+        if($$->offset != "") $$->asmCode += "PUSH " + getStackAddress($$->offset);
         else $$->asmCode += "PUSH " + $1->asmText + "\n";
     }
     ;
