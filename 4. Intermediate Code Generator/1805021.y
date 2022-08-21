@@ -145,7 +145,7 @@
  }
 
  void codeOptimization(string code){
-    vector<string>line_v  = tokenize(code,'\n');
+    vector<string>line_v  = tokenize(code, '\n');
     int line_v_sz = line_v.size();
 
     string prev_line_cmd = "";
@@ -166,9 +166,9 @@
         {
 
             if(token_v[1] == "WORD"){
-                cur_line_token = tokenize(token_v[3],',');
+                cur_line_token = tokenize(token_v[3], ',');
             }else{
-                cur_line_token = tokenize(token_v[1],',');
+                cur_line_token = tokenize(token_v[1], ',');
             }
 
             if(prev_line_cmd == "MOV" || prev_line_cmd == "mov"){
@@ -520,6 +520,7 @@ func_definition: type_specifier ID LPAREN parameter_list RPAREN {
 
         $$->asmCode += "PUSH BP\nMOV BP,SP\n";
         $$->asmCode += "SUB SP, " + to_string(sp) + "\n";
+
         $$->asmCode += $4->asmCode + "\n";
         $$->asmCode += param_code + "\n";
         $$->asmCode += $7->asmCode + "\n";
